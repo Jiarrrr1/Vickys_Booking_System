@@ -10,11 +10,17 @@
     "format": "prettier --write --experimental-cli src/"
   },
   "dependencies": {
-    "vue": "^3.5.27"
+    "bootstrap": "^5.3.8",
+    "lucide-vue-next": "^0.563.0",
+    "vue": "^3.5.27",
+    "vue-router": "^4.6.4"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^6.0.3",
+    "autoprefixer": "^10.4.24",
+    "postcss": "^8.5.6",
     "prettier": "3.8.1",
+    "tailwindcss": "^3.4.1",
     "vite": "^7.3.1",
     "vite-plugin-vue-devtools": "^8.0.5"
   },

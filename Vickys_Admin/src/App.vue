@@ -1,8 +1,7 @@
-<script setup></script>
-
 <template>
-  
-
+  <router-view />
 </template>
 
-<style scoped></style>
+<script setup>
+// No logic needed
+</script>
