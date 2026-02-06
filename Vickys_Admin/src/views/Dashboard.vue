@@ -13,8 +13,7 @@
         :icon="CheckCircle"
         icon-color="text-green-600"
       />
-      <StatCard title="Upcoming Check-ins" :value="12" :icon="Users" icon-color="text-purple-600" />
-      <StatCard title="Available Rooms" :value="7" :icon="Bed" icon-color="text-amber-600" />
+      <StatCard title="Upcoming Check-ins" :value="recentBookings.length" :icon="Users" icon-color="text-purple-600" />
     </div>
 
     <div class="bg-white rounded-xl p-6 shadow-sm border border-neutral-200 min-h-[300px]">
@@ -34,7 +33,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr
+            <tr 
               v-for="booking in recentBookings"
               :key="booking.id"
               class="border-b border-neutral-100 hover:bg-neutral-50"
