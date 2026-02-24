@@ -291,6 +291,7 @@ i {
     font-weight: 700;
     margin-bottom: 2rem;
     color: #323232;
+    margin-top: 2rem;
 }
 
 .about-section p {
@@ -301,6 +302,53 @@ i {
     margin-bottom: 3rem;
 }
 
+.about-container {
+        max-width: 1200px;
+    margin: 0 auto;
+    padding:2rem 20px;
+    border-radius: 20px;
+    background-color: #FFFFFF;
+
+}
+
+
+.about-content {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+    align-items: center;
+}
+.about-image {
+    height: 600px;
+    background-size: cover;
+    background-position: center;
+    border-radius: 20px;
+}
+
+.about-text h2 {
+    font-family: 'Playfair Display', serif;
+    color: #007A56;
+    margin-bottom: 1.5rem;
+    font-size: 2.5rem;
+}
+.about-text p {
+    font-size: 1.1rem;
+    line-height: 1.8;
+    margin-bottom: 1.5rem;
+    text-align: left;
+}.info-box {
+    background-color: #b4b4b4;
+    padding: 1.5rem;
+    border-radius: 12px;
+    margin-top: 2rem;
+    text-align: left;
+    
+}
+.info-box h4 {
+    margin-bottom: 0.5rem;
+    color: #007A56;
+    font-size: 1.5rem;
+}
 .about-item-con {
     display: flex;
     gap: 2rem;
@@ -334,6 +382,10 @@ i {
 .feedback-section {
     padding: 4rem 7rem;
     text-align: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
 }
 
 .feedback-section h1 {
@@ -460,4 +512,25 @@ footer hr {
     font-family: "Noto Sans", sans-serif;
     font-size: .8rem;
     font-weight: 400;
+}
+
+.add-feedback-con {
+     display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 2rem;
+}
+
+.add-feedback-con:hover {
+    cursor: pointer;
+}
+
+.add-feedback-con p{
+    margin-top: .5rem;
+    font-size: 1.2rem;
+}
+
+* {
+    scroll-behavior: smooth;
 }

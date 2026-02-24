@@ -12,6 +12,7 @@ require('dotenv').config();
 // Routes
 const ReservationRoutes = require('./routes/reservationRoutes')
 const FeedbackRoutes = require('./routes/feedbackRoutes')
+const AdminRoutes = require('./routes/adminRoutes')
 
 // Middleware
 
@@ -34,6 +35,8 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use('/api/v1', ReservationRoutes)
 app.use('/api/v1', FeedbackRoutes)
+app.use('/api/v1/admin', AdminRoutes)
+
 
 
 // Test route

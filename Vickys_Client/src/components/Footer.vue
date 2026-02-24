@@ -1,5 +1,5 @@
 <template>
-  <footer>
+  <footer id="contact">
     <div class="footer-item-con">
       <div class="footer-item" style="transform: translateY(-1.8rem);">
         <h1>Vicky's Resort</h1>

@@ -23,7 +23,7 @@
               v-model="email"
               :disabled="isLoading"
               class="block w-full pl-10 pr-3 py-2 border border-neutral-300 rounded-lg focus:ring-green-500 focus:border-green-500 bg-white text-neutral-900 placeholder-neutral-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              placeholder="admin@vickysresort.com"
+              placeholder="admin@gmail.com"
             />
           </div>
         </div>

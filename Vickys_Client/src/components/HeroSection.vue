@@ -1,6 +1,6 @@
 <template>
   
-  <section class="head-section">
+  <section id="home" class="head-section">
     <div class="backdrop"></div>
     <div class="header-text">
       <h1>Welcome to Vicky's Resort</h1>

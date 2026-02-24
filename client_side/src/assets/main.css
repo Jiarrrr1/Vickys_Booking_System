@@ -1,0 +1,1747 @@
+/* ============================================================
+   home.css — Vicky's Resort Homepage Styles
+   ============================================================ */
+
+
+/* ─── RESET & BOX MODEL ─── */
+/* Normalize spacing and sizing across all elements */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+
+/* ─── CSS CUSTOM PROPERTIES (DESIGN TOKENS) ─── */
+/* Central color palette and reusable variables for the whole site */
+:root {
+  --charcoal: #1e1e1e;
+  --charcoal-mid: #2a2a2a;
+  --charcoal-light: #3a3a3a;
+  --charcoal-border: #444;
+  --cream: #f5f0e8;
+  --cream-light: #faf7f2;
+  --gold: #c9a96e;
+  --gold-light: #e8d5a3;
+  --teal: #4a9e8e;
+  --teal-light: #6bbdac;
+  --white: #ffffff;
+  --text-muted: #999;
+}
+
+
+/* ─── BASE STYLES ─── */
+/* Smooth scrolling and global typography/color defaults */
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background-color: var(--charcoal);
+  color: var(--white);
+  overflow-x: hidden;
+}
+
+img { max-width: 100%; height: auto; display: block; }
+h1, h2, h3, h4, h5, h6, p { margin: 0; }
+a { text-decoration: none; color: white; }
+
+
+/* ─── NOISE TEXTURE OVERLAY ─── */
+/* Subtle SVG fractal noise fixed over the entire page for texture depth */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.4;
+}
+
+
+/* ─── NAVIGATION ─── */
+/* Fixed top nav bar with gradient background that solidifies on scroll */
+#nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 1000;
+  padding: 0 60px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.85), transparent);
+  transition: background 0.4s;
+}
+
+/* Nav background becomes solid dark when user scrolls down */
+#nav.scrolled {
+  background: rgba(20,20,20,0.97);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--charcoal-border);
+}
+
+/* Resort name logo in the nav */
+.nav-logo {
+  font-family: 'Playfair Display', serif;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+router-link {
+    color: (var(--white));
+}
+
+.nav-logo span { color: var(--gold); }
+
+/* Horizontal nav link list */
+.nav-links {
+  display: flex;
+  gap: 36px;
+  list-style: none;
+}
+
+/* Individual nav link with underline hover animation */
+.nav-links a {
+  color: rgba(255,255,255,0.8);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  transition: color 0.3s;
+  position: relative;
+}
+
+.nav-links a::after {
+  content: '';
+  position: absolute;
+  bottom: -3px; left: 0;
+  width: 0; height: 1px;
+  background: var(--gold);
+  transition: width 0.3s;
+}
+
+.nav-links a:hover { color: var(--gold); }
+.nav-links a:hover::after { width: 100%; }
+
+/* "Book Now" CTA button inside the nav */
+.nav-book {
+  background: var(--gold);
+  color: var(--charcoal) !important;
+  padding: 10px 24px;
+  border-radius: 2px;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  transition: background 0.3s !important;
+}
+
+.nav-book:hover { background: var(--gold-light) !important; }
+.nav-book::after { display: none !important; }
+
+
+/* ─── HERO SECTION ─── */
+/* Full-screen slideshow hero with overlay text */
+#hero {
+  position: relative;
+  height: 100vh;
+  min-height: 700px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* Container holding all hero slides stacked on top of each other */
+.hero-slides {
+  position: absolute;
+  inset: 0;
+}
+
+/* Each individual hero slide — hidden by default */
+.hero-slide {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 1.5s ease;
+}
+
+.hero-slide.active { opacity: 1; }
+
+/* Hero image with subtle zoom-in animation on load */
+.hero-slide img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  transform: scale(1.05);
+  animation: heroZoom 8s ease-out forwards;
+}
+
+@keyframes heroZoom {
+  from { transform: scale(1.05); }
+  to { transform: scale(1.0); }
+}
+
+/* Dark gradient overlay so text is readable over photos */
+.hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    rgba(20,20,20,0.85) 0%,
+    rgba(20,20,20,0.55) 60%,
+    rgba(20,20,20,0.75) 100%
+  );
+}
+
+/* Centered text content on the hero */
+.hero-content {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  padding: 0 24px;
+  max-width: 900px;
+}
+
+/* Small uppercase label above the main headline */
+.hero-eyebrow {
+  font-size: 11px;
+  letter-spacing: 5px;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 24px;
+  font-weight: 500;
+}
+
+/* Main hero headline — fluid font size using clamp */
+.hero-title {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(48px, 7vw, 88px);
+  font-weight: 600;
+  line-height: 1.1;
+  color: var(--white);
+  margin-bottom: 28px;
+}
+
+/* Italic golden-light accent in the headline */
+.hero-title em {
+  font-style: italic;
+  color: var(--gold-light);
+}
+
+/* Short subheading paragraph below the title */
+.hero-sub {
+  font-size: 18px;
+  color: rgba(255,255,255,0.75);
+  line-height: 1.7;
+  margin-bottom: 48px;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Row of CTA buttons */
+.hero-btns {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* Primary solid gold button */
+.btn-primary {
+  background: var(--gold);
+  color: var(--charcoal);
+  padding: 16px 40px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  border-radius: 2px;
+  transition: all 0.3s;
+  border: 2px solid var(--gold);
+}
+
+.btn-primary:hover {
+  background: transparent;
+  color: var(--gold);
+}
+
+/* Secondary outline/ghost button */
+.btn-secondary {
+  background: transparent;
+  color: var(--white);
+  padding: 16px 40px;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  border-radius: 2px;
+  border: 1.5px solid rgba(255,255,255,0.5);
+  transition: all 0.3s;
+}
+
+.btn-secondary:hover {
+  border-color: var(--white);
+  background: rgba(255,255,255,0.1);
+}
+
+/* Slideshow dot indicators at the bottom center of hero */
+.hero-indicators {
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 10px;
+  z-index: 3;
+}
+
+/* Single dot — expands and turns gold when active */
+.hero-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.4);
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.hero-dot.active {
+  background: var(--gold);
+  width: 24px;
+  border-radius: 3px;
+}
+
+/* "Scroll to Explore" hint at the bottom-right of the hero */
+.hero-scroll {
+  position: absolute;
+  bottom: 40px;
+  right: 60px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: rgba(255,255,255,0.5);
+  font-size: 11px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+}
+
+.hero-scroll::before {
+  content: '';
+  width: 40px; height: 1px;
+  background: rgba(255,255,255,0.3);
+}
+
+
+/* ─── SECTION SHARED STYLES ─── */
+/* Gold-accented section label used across multiple sections */
+.section-label {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.section-label::before {
+  content: '';
+  width: 40px; height: 1px;
+  background: var(--gold);
+}
+
+.section-label span {
+  font-size: 11px;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: var(--gold);
+  font-weight: 500;
+}
+
+
+/* ─── INFO STRIP ─── */
+/* Short banner with resort summary text and stats row */
+#infostrip {
+  background: var(--charcoal-mid);
+  border-top: 1px solid var(--charcoal-border);
+  border-bottom: 1px solid var(--charcoal-border);
+  padding: 60px 40px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Decorative large faint star symbol in the background */
+#infostrip::before {
+  content: '✦';
+  position: absolute;
+  font-size: 200px;
+  color: rgba(201,169,110,0.04);
+  top: -40px;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.infostrip-inner {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.infostrip-inner p {
+  font-size: 17px;
+  line-height: 1.9;
+  color: rgba(255,255,255,0.7);
+}
+
+/* Ornamental divider line between the text and stats */
+.infostrip-divider {
+  color: var(--gold);
+  letter-spacing: 8px;
+  margin-top: 28px;
+  font-size: 14px;
+}
+
+/* Row of stat numbers (pools, distance, rating, etc.) */
+.stats-row {
+  display: flex;
+  justify-content: center;
+  gap: 80px;
+  margin-top: 48px;
+  flex-wrap: wrap;
+}
+
+.stat-item { text-align: center; }
+
+/* Large gold number for each stat */
+.stat-num {
+  font-family: 'Playfair Display', serif;
+  font-size: 42px;
+  color: var(--gold);
+  font-weight: 700;
+  display: block;
+}
+
+/* Small uppercase label under the stat number */
+.stat-label {
+  font-size: 12px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+
+/* ─── EXPERIENCE SECTION ─── */
+/* Alternating image + text blocks describing the resort experience */
+#experience {
+  padding: 120px 0;
+  background: var(--charcoal);
+}
+
+.exp-wrapper {
+  max-width: 1300px;
+  margin: 0 auto;
+  padding: 0 60px;
+}
+
+/* Two-column image/text layout */
+.exp-block {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 48px;
+  margin-bottom: 100px;
+  align-items: center;
+}
+
+.exp-block:last-child { margin-bottom: 0; }
+
+/* Reversed layout (image on the right) for alternate blocks */
+.exp-block.reverse {
+  grid-template-columns: 0.9fr 1.1fr;
+}
+
+.exp-block.reverse .exp-img-panel { order: 2; }
+.exp-block.reverse .exp-text-panel { order: 1; }
+
+/* Image panel with overflow hidden for zoom effect on hover */
+.exp-img-panel {
+  position: relative;
+  overflow: hidden;
+  border-radius: 4px;
+}
+
+.exp-img-panel img {
+  width: 100%;
+  height: 520px;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.8s ease;
+}
+
+/* Slight zoom on image when hovering the block */
+.exp-block:hover .exp-img-panel img {
+  transform: scale(1.03);
+}
+
+/* Dark text panel beside the image */
+.exp-text-panel {
+  background: var(--charcoal-mid);
+  padding: 56px 52px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  border: 1px solid var(--charcoal-border);
+  border-radius: 4px;
+}
+
+.exp-text-panel h2 {
+  font-family: 'Playfair Display', serif;
+  font-size: 36px;
+  font-weight: 600;
+  line-height: 1.25;
+  margin-bottom: 20px;
+  color: var(--white);
+}
+
+.exp-text-panel p {
+  font-size: 15px;
+  line-height: 1.85;
+  color: rgba(255,255,255,0.65);
+  margin-bottom: 36px;
+}
+
+/* Gold text link with animated arrow */
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--gold);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  transition: gap 0.3s;
+}
+
+.btn-ghost::after {
+  content: '→';
+  transition: transform 0.3s;
+}
+
+.btn-ghost:hover { gap: 16px; }
+.btn-ghost:hover::after { transform: translateX(4px); }
+
+
+/* ─── AVAILABILITY SECTION ─── */
+/* Light-background section with calendar widget and booking policies */
+#availability {
+  padding: 120px 60px;
+  background: var(--cream-light);
+  color: var(--charcoal);
+}
+
+.avail-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Centered header above the calendar + policy grid */
+.avail-header {
+  text-align: center;
+  margin-bottom: 70px;
+}
+
+/* Override section-label to be centered (with line on both sides) */
+.avail-header .section-label { justify-content: center; }
+.avail-header .section-label::before { display: none; }
+.avail-header .section-label::after {
+  content: '';
+  width: 40px; height: 1px;
+  background: var(--gold);
+}
+
+.avail-header h2 {
+  font-family: 'Playfair Display', serif;
+  font-size: 48px;
+  font-weight: 600;
+  color: var(--charcoal);
+  margin-bottom: 16px;
+}
+
+.avail-header p {
+  font-size: 16px;
+  color: #666;
+}
+
+/* Side-by-side layout: calendar on left, policies on right */
+.avail-grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 40px;
+  align-items: start;
+}
+
+
+/* ─── CALENDAR WIDGET ─── */
+/* Interactive date picker for checking availability */
+.calendar-widget {
+  background: var(--white);
+  border-radius: 12px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.12);
+  overflow: hidden;
+}
+
+/* Dark header row with month name and nav arrows */
+.cal-header {
+  background: var(--charcoal);
+  color: var(--white);
+  padding: 24px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Month + year title in the calendar header */
+.cal-month {
+  font-family: 'Playfair Display', serif;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+/* Previous/next month buttons */
+.cal-nav {
+  background: none;
+  border: 1px solid var(--charcoal-border);
+  color: var(--white);
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.cal-nav:hover { background: var(--gold); border-color: var(--gold); }
+
+/* Color legend strip (Available / Booked / Selected) */
+.cal-legend {
+  display: flex;
+  gap: 20px;
+  padding: 16px 32px;
+  background: #f8f8f8;
+  border-bottom: 1px solid #eee;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #666;
+}
+
+/* Small colored circle dot in the legend */
+.legend-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+}
+
+.legend-dot.available { background: #a8d5b5; }
+.legend-dot.booked { background: #e8a0a0; }
+.legend-dot.selected { background: var(--teal); }
+
+/* Main calendar grid area */
+.cal-grid {
+  padding: 20px 32px 32px;
+}
+
+/* Row of weekday name labels (Sun–Sat) */
+.cal-days-header {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  margin-bottom: 8px;
+}
+
+.cal-day-name {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #999;
+  padding: 8px 0;
+}
+
+/* 7-column grid of individual date cells */
+.cal-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+/* Individual day cell — green-tinted for available dates */
+.cal-day {
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+  position: relative;
+  background: #f0f8f2;
+  color: var(--charcoal);
+  border: 1.5px solid transparent;
+}
+
+.cal-day:hover:not(.booked):not(.empty) {
+  background: var(--teal);
+  color: var(--white);
+  transform: scale(1.05);
+}
+
+/* Empty padding cells before the first day of the month */
+.cal-day.empty { background: transparent; cursor: default; }
+
+/* Today's date — teal border highlight */
+.cal-day.today { border-color: var(--teal); font-weight: 700; }
+
+/* Already-booked date — red tint, not clickable */
+.cal-day.booked {
+  background: #fde8e8;
+  color: #c0392b;
+  cursor: not-allowed;
+}
+
+/* "Booked" micro-label beneath the date number */
+.cal-day.booked::after {
+  content: 'Booked';
+  position: absolute;
+  bottom: 2px;
+  font-size: 7px;
+  color: #c0392b;
+  font-weight: 600;
+}
+
+/* User-selected date range — teal fill */
+.cal-day.selected {
+  background: var(--teal);
+  color: var(--white);
+  border-color: #3a8e7e;
+}
+
+/* Check-in start date — dark charcoal fill */
+.cal-day.checkin { background: var(--charcoal); color: var(--white); }
+
+/* Footer hint text below the calendar grid */
+.cal-footer {
+  padding: 16px 32px;
+  border-top: 1px solid #eee;
+  text-align: center;
+  font-size: 13px;
+  color: #888;
+  background: #fafafa;
+}
+
+/* Selected date range display bar — shown/hidden via JS */
+.cal-selected-range {
+  margin-top: 12px;
+  padding: 12px 20px;
+  background: var(--charcoal);
+  color: var(--white);
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  display: none;
+}
+
+.cal-selected-range.visible { display: block; }
+
+
+/* ─── POLICIES CARD ─── */
+/* Dark card beside the calendar listing booking terms */
+.policies-card {
+  background: var(--charcoal);
+  color: var(--white);
+  padding: 48px 40px;
+  border-radius: 12px;
+  height: 100%;
+}
+
+.policies-card .section-label span { color: var(--gold); }
+
+.policies-card h3 {
+  font-family: 'Playfair Display', serif;
+  font-size: 28px;
+  font-weight: 600;
+  margin-bottom: 24px;
+}
+
+.policies-card p {
+  font-size: 15px;
+  line-height: 1.8;
+  color: rgba(255,255,255,0.65);
+  margin-bottom: 16px;
+}
+
+/* Individual policy row with icon and text */
+.policy-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--charcoal-border);
+}
+
+.policy-icon { color: var(--gold); font-size: 16px; margin-top: 2px; }
+
+.policy-text { font-size: 14px; color: rgba(255,255,255,0.7); line-height: 1.6; }
+
+/* Gold CTA button used in the policies card */
+.btn-gold {
+  display: inline-block;
+  background: var(--gold);
+  color: var(--charcoal);
+  padding: 14px 32px;
+  border-radius: 2px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-top: 32px;
+  transition: all 0.3s;
+}
+
+.btn-gold:hover { background: var(--gold-light); }
+
+
+/* ─── ROOMS SECTION ─── */
+/* Slider showcasing each room with info panel + photo */
+#rooms {
+  padding: 120px 60px;
+  background: var(--charcoal);
+}
+
+.rooms-inner {
+  max-width: 1300px;
+  margin: 0 auto;
+}
+
+/* Header with room section title and brief description */
+.rooms-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 60px;
+}
+
+.rooms-header h2 {
+  font-family: 'Playfair Display', serif;
+  font-size: 52px;
+  font-weight: 600;
+}
+
+.rooms-header p {
+  color: var(--text-muted);
+  font-size: 15px;
+  max-width: 300px;
+  text-align: right;
+}
+
+/* Individual room card — two columns: info left, image right */
+.room-card {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.06));
+  border: 1px solid rgba(255,255,255,0.03);
+  border-radius: 8px;
+  overflow: visible;
+  box-shadow: 0 30px 50px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.02);
+  transition: transform 0.4s, box-shadow 0.4s;
+}
+
+/* Lift + deepen shadow on hover */
+.room-card:hover { transform: translateY(-6px); box-shadow: 0 40px 70px rgba(0,0,0,0.7); }
+
+/* Left panel with room details, amenities, and pricing */
+.room-info {
+  padding: 70px 64px;
+  display: flex;
+  flex-direction: column;
+  background: rgba(12,12,12,0.45);
+  border-right: 1px solid rgba(255,255,255,0.02);
+}
+
+/* Gold-bordered featured badge pill */
+.room-badge {
+  display: inline-block;
+  font-size: 10px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--gold);
+  border: 1px solid var(--gold);
+  padding: 5px 14px;
+  border-radius: 20px;
+  margin-bottom: 24px;
+  width: fit-content;
+}
+
+/* Room name heading */
+.room-name {
+  font-family: 'Playfair Display', serif;
+  font-size: 36px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+/* Guest capacity indicator */
+.room-capacity {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-bottom: 32px;
+}
+
+/* Vertical list of amenity rows */
+.room-amenities {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 36px;
+}
+
+/* Single amenity item with icon */
+.amenity-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  color: rgba(255,255,255,0.7);
+}
+
+.amenity-icon { color: var(--teal); font-size: 16px; }
+
+/* Bottom area with price and Book Now button */
+.room-price-area {
+  border-top: 1px solid var(--charcoal-border);
+  padding-top: 28px;
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Large gold price display */
+.room-price {
+  font-family: 'Playfair Display', serif;
+  font-size: 36px;
+  color: var(--gold);
+}
+
+.room-price-label { font-size: 13px; color: var(--text-muted); }
+
+/* Book Now button on each room card */
+.btn-book {
+  background: var(--gold);
+  color: var(--charcoal);
+  padding: 14px 32px;
+  border-radius: 2px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  transition: all 0.3s;
+}
+
+.btn-book:hover { background: var(--gold-light); }
+
+/* Right panel — full-height room photo */
+.room-img-panel {
+  position: relative;
+  overflow: hidden;
+  min-height: 520px;
+  border-top-right-radius: 8px;
+  border-bottom-right-radius: 8px;
+  box-shadow: -6px 10px 30px rgba(0,0,0,0.45);
+}
+
+.room-img-panel img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.6s;
+  display: block;
+}
+
+.room-card:hover .room-img-panel img { transform: scale(1.03); }
+
+/* ── Rooms Slider Track ── */
+/* Overflow-visible track so box shadows are not clipped */
+.rooms-track { overflow: visible; position: relative; padding: 24px 40px; }
+
+/* Flex container — slides shift left via JS translateX */
+.rooms-slides {
+  display: flex;
+  transition: transform 0.55s cubic-bezier(0.77, 0, 0.175, 1);
+  will-change: transform;
+}
+
+/* Each slide takes full container width */
+.room-slide { min-width: 100%; flex-shrink: 0; display: flex; justify-content: center; }
+
+/* Controls row: slide counter on left, arrows on right */
+.rooms-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 28px;
+  position: relative;
+}
+
+.rooms-counter {
+  font-size: 13px;
+  color: var(--text-muted);
+  letter-spacing: 2px;
+}
+
+.rooms-counter strong {
+  font-family: 'Playfair Display', serif;
+  font-size: 20px;
+  color: var(--gold);
+}
+
+.rooms-arrows { display: flex; gap: 12px; }
+
+/* Circular prev/next arrow buttons */
+.rooms-arrow {
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  border: 1.5px solid var(--charcoal-border);
+  background: var(--charcoal-mid);
+  color: var(--white);
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.3s, border-color 0.3s, color 0.3s;
+}
+
+.rooms-arrow:hover {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: var(--charcoal);
+}
+
+/* Arrows are absolutely positioned beside the room card */
+#rooms > .rooms-inner > .fade-up { position: relative; }
+#rooms .rooms-arrows { position: absolute; top: 50%; right: 24px; transform: translateY(-50%); z-index: 30; }
+#rooms .rooms-arrow { width: 56px; height: 56px; box-shadow: 0 10px 30px rgba(0,0,0,0.45); border-width: 0; background: rgba(18,18,18,0.6); color: var(--white); }
+#rooms .rooms-arrow:hover { background: var(--gold); color: var(--charcoal); }
+
+/* Room card max width constraint inside the slider */
+#rooms .rooms-slides { align-items: center; }
+#rooms .room-card { width: 100%; max-width: 1100px; margin: 0 auto; }
+
+/* Disabled arrow (first/last slide) */
+.rooms-arrow:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Italic label badge overlaid on the room photo */
+.room-img-label {
+  position: absolute;
+  top: 20px; right: 20px;
+  background: var(--charcoal);
+  color: var(--gold);
+  font-family: 'Playfair Display', serif;
+  font-size: 20px;
+  font-style: italic;
+  padding: 10px 20px;
+  border-radius: 2px;
+}
+
+/* Room description paragraph */
+.room-desc-text {
+  font-size: 14px;
+  line-height: 1.75;
+  color: rgba(255,255,255,0.55);
+  margin-bottom: 32px;
+}
+
+
+/* ─── WHY CHOOSE SECTION ─── */
+/* Light-background grid of 4 reasons with overlay images */
+#why {
+  padding: 120px 60px;
+  background: var(--cream-light);
+  color: var(--charcoal);
+}
+
+.why-inner {
+  max-width: 1300px;
+  margin: 0 auto;
+}
+
+/* Centered section heading */
+.why-top {
+  text-align: center;
+  margin-bottom: 70px;
+}
+
+/* Override section-label to be center-aligned with line on both sides */
+.why-top .section-label { justify-content: center; }
+.why-top .section-label::before { display: none; }
+.why-top .section-label::after { content: ''; width: 40px; height: 1px; background: var(--gold); }
+
+.why-top h2 {
+  font-family: 'Playfair Display', serif;
+  font-size: 48px;
+  font-weight: 600;
+  color: var(--charcoal);
+}
+
+/* 4-column portrait card grid */
+.why-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 2px;
+}
+
+/* Each card — photo with gradient overlay text */
+.why-card {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 3/4;
+}
+
+.why-card img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  transition: transform 0.6s;
+}
+
+.why-card:hover img { transform: scale(1.08); }
+
+/* Dark gradient overlay rising from bottom for text legibility */
+.why-card-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.1) 60%);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 32px 28px;
+}
+
+/* Large faint number (01–04) in the card background */
+.why-card-num {
+  font-family: 'Playfair Display', serif;
+  font-size: 60px;
+  color: rgba(201,169,110,0.2);
+  font-weight: 700;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.why-card-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 22px;
+  color: var(--white);
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.why-card-desc {
+  font-size: 13px;
+  color: rgba(255,255,255,0.7);
+  line-height: 1.6;
+}
+
+
+/* ─── FAMILIES / GATHERINGS SECTION ─── */
+/* Split layout: descriptive text left, photo grid right */
+#families {
+  padding: 120px 60px;
+  background: var(--charcoal);
+}
+
+.families-inner {
+  max-width: 1300px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 80px;
+  align-items: center;
+}
+
+.families-text h2 {
+  font-family: 'Playfair Display', serif;
+  font-size: 48px;
+  font-weight: 600;
+  line-height: 1.2;
+  margin-bottom: 32px;
+}
+
+.families-text p {
+  font-size: 16px;
+  line-height: 1.85;
+  color: rgba(255,255,255,0.65);
+  margin-bottom: 20px;
+}
+
+/* Gold left-bordered highlight quote box */
+.walkin-box {
+  margin-top: 40px;
+  padding: 28px 32px;
+  border-left: 3px solid var(--gold);
+  background: rgba(201,169,110,0.08);
+}
+
+.walkin-box p {
+  font-family: 'Playfair Display', serif;
+  font-size: 18px;
+  font-style: italic;
+  color: var(--gold-light);
+  margin: 0;
+}
+
+/* Right column with layered photo collage */
+.families-images {
+  position: relative;
+}
+
+/* 2-column photo grid with one tall left image and two stacked right images */
+.img-duo-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto auto;
+  gap: 12px;
+}
+
+/* Left tall image spanning both rows */
+.img-duo-grid .duo-img-a {
+  grid-column: 1 / 2;
+  grid-row: 1 / 3;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.img-duo-grid .duo-img-a img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  min-height: 380px;
+  transition: transform 0.5s;
+}
+
+/* Two stacked images on the right column */
+.img-duo-grid .duo-img-b,
+.img-duo-grid .duo-img-c {
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.img-duo-grid .duo-img-b img,
+.img-duo-grid .duo-img-c img {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.5s;
+}
+
+/* Hover zoom on all three photos */
+.img-duo-grid .duo-img-a:hover img,
+.img-duo-grid .duo-img-b:hover img,
+.img-duo-grid .duo-img-c:hover img {
+  transform: scale(1.04);
+}
+
+/* Gold label tag positioned bottom-right of the photo grid */
+.img-duo-grid .duo-label {
+  position: absolute;
+  bottom: -50px;
+  right: 0;
+  background: var(--gold);
+  color: var(--charcoal);
+  font-size: 11px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  font-weight: 600;
+  padding: 8px 20px;
+}
+
+
+/* ─── REVIEWS SECTION ─── */
+/* Three-column grid of guest testimonial cards */
+#reviews {
+  padding: 120px 60px;
+  background: var(--charcoal-mid);
+  border-top: 1px solid var(--charcoal-border);
+}
+
+.reviews-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Centered section heading and subtitle */
+.reviews-top {
+  text-align: center;
+  margin-bottom: 70px;
+}
+
+.reviews-top h2 {
+  font-family: 'Playfair Display', serif;
+  font-size: 48px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.reviews-top p { color: var(--text-muted); font-size: 16px; }
+
+/* 3-column review card grid */
+.reviews-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+/* Individual review card with lift-on-hover + gold border effect */
+.review-card {
+  background: var(--charcoal);
+  border: 1px solid var(--charcoal-border);
+  padding: 40px 36px;
+  border-radius: 4px;
+  position: relative;
+  transition: transform 0.3s, border-color 0.3s;
+}
+
+.review-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--gold);
+}
+
+/* Decorative large quotation mark in the card background */
+.review-quote {
+  position: absolute;
+  top: 28px; right: 32px;
+  font-size: 60px;
+  line-height: 1;
+  color: rgba(201,169,110,0.15);
+  font-family: 'Playfair Display', serif;
+}
+
+/* Gold star rating row */
+.stars {
+  color: var(--gold);
+  font-size: 16px;
+  letter-spacing: 2px;
+  margin-bottom: 20px;
+}
+
+/* Italic review body text */
+.review-text {
+  font-size: 15px;
+  line-height: 1.8;
+  color: rgba(255,255,255,0.7);
+  font-style: italic;
+  margin-bottom: 28px;
+}
+
+.reviewer-name {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+/* Location and date of the review */
+.review-date {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+
+/* ─── FOOTER ─── */
+/* Dark footer with brand info, contact, and quick links */
+footer {
+  background: #111;
+  border-top: 1px solid var(--charcoal-border);
+  padding: 80px 60px 40px;
+}
+
+.footer-inner {
+  max-width: 1300px;
+  margin: 0 auto;
+}
+
+/* Three-column footer grid: brand desc | contact | quick links */
+.footer-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 60px;
+  margin-bottom: 60px;
+}
+
+/* Resort name in the footer */
+.footer-brand {
+  font-family: 'Playfair Display', serif;
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 20px;
+}
+
+.footer-brand span { color: var(--gold); }
+
+/* Short tagline paragraph below brand name */
+.footer-desc {
+  font-size: 14px;
+  line-height: 1.8;
+  color: rgba(255,255,255,0.5);
+  max-width: 360px;
+}
+
+/* Column heading (Contact Us / Quick Links) */
+.footer-col h4 {
+  font-size: 11px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 24px;
+}
+
+/* Contact row with icon + text */
+.footer-contact-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.footer-contact-item span:first-child {
+  color: var(--gold);
+  font-size: 16px;
+  margin-top: 1px;
+}
+
+.footer-contact-item span:last-child {
+  font-size: 14px;
+  color: rgba(255,255,255,0.6);
+  line-height: 1.6;
+}
+
+.footer-links { list-style: none; }
+
+.footer-links li {
+  margin-bottom: 12px;
+}
+
+/* Quick link with animated arrow reveal on hover */
+.footer-links a {
+  font-size: 14px;
+  color: rgba(255,255,255,0.55);
+  transition: color 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.footer-links a::before {
+  content: '→';
+  color: var(--gold);
+  font-size: 12px;
+  opacity: 0;
+  transform: translateX(-8px);
+  transition: all 0.2s;
+}
+
+.footer-links a:hover { color: var(--white); }
+.footer-links a:hover::before { opacity: 1; transform: translateX(0); }
+
+/* Copyright bar at the very bottom */
+.footer-bottom {
+  border-top: 1px solid var(--charcoal-border);
+  padding-top: 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.footer-bottom p {
+  font-size: 13px;
+  color: rgba(255,255,255,0.35);
+}
+
+/* Italic tagline on the right side of the footer bottom */
+.footer-bottom-brand {
+  font-family: 'Playfair Display', serif;
+  font-size: 13px;
+  color: var(--gold);
+  opacity: 0.6;
+}
+
+
+/* ─── RESPONSIVE BREAKPOINTS ─── */
+
+/* Tablet — 1024px and below */
+@media (max-width: 1024px) {
+  #nav { padding: 0 30px; }
+  .exp-wrapper { padding: 0 30px; }
+  .why-grid { grid-template-columns: repeat(2, 1fr); }
+  .avail-grid { grid-template-columns: 1fr; }
+  .reviews-grid { grid-template-columns: 1fr 1fr; }
+  .families-inner { grid-template-columns: 1fr; gap: 60px; }
+  .img-front { position: relative; width: 60%; bottom: auto; left: auto; margin-top: 20px; }
+  .footer-grid { grid-template-columns: 1fr 1fr; }
+}
+
+/* ─── HAMBURGER MENU ─── */
+/* Hidden by default on desktop; shown on mobile */
+.nav-hamburger {
+  display: none;
+  flex-direction: column;
+  gap: 5px;
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  z-index: 1100;
+}
+.nav-hamburger span {
+  display: block;
+  width: 24px;
+  height: 2px;
+  background: var(--white);
+  border-radius: 2px;
+  transition: all 0.3s;
+}
+/* Animate hamburger → X when menu is open */
+.nav-hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.nav-hamburger.open span:nth-child(2) { opacity: 0; }
+.nav-hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+/* Mobile — 768px and below */
+@media (max-width: 768px) {
+  /* ── Nav ── */
+  #nav { padding: 0 20px; height: 64px; }
+  .nav-hamburger { display: flex; }
+  .nav-links {
+    display: none;
+    position: fixed;
+    top: 64px; left: 0; right: 0;
+    background: rgba(20,20,20,0.98);
+    backdrop-filter: blur(16px);
+    flex-direction: column;
+    gap: 0;
+    padding: 12px 0 24px;
+    border-bottom: 1px solid var(--charcoal-border);
+    z-index: 999;
+  }
+  .nav-links.open { display: flex; }
+  .nav-links li { width: 100%; }
+  .nav-links a {
+    display: block;
+    padding: 14px 24px;
+    font-size: 15px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .nav-links a::after { display: none; }
+  .nav-book {
+    margin: 12px 24px 0;
+    display: block;
+    text-align: center;
+    border-radius: 4px;
+    padding: 14px 24px !important;
+  }
+
+  /* ── Hero ── */
+  .hero-title { font-size: clamp(32px, 9vw, 48px); }
+  .hero-sub { font-size: 15px; }
+  .hero-scroll { display: none; }
+  .hero-btns { flex-direction: column; align-items: center; gap: 12px; }
+  .btn-primary, .btn-secondary { width: 100%; max-width: 280px; text-align: center; justify-content: center; padding: 14px 24px; }
+
+  /* ── Info Strip ── */
+  #infostrip { padding: 48px 24px; }
+  .stats-row { gap: 32px; }
+  .stat-num { font-size: 32px; }
+
+  /* ── Experience ── */
+  #experience { padding: 80px 0; }
+  .exp-wrapper { padding: 0 20px; }
+  .exp-block { grid-template-columns: 1fr; gap: 0; margin-bottom: 60px; }
+  .exp-block.reverse { direction: ltr; }
+  .exp-block.reverse .exp-img-panel { order: 0; }
+  .exp-block.reverse .exp-text-panel { order: 1; }
+  .exp-img-panel img { height: 260px; }
+  .exp-text-panel { padding: 36px 24px; }
+  .exp-text-panel h2 { font-size: 28px; }
+
+  /* ── Availability ── */
+  #availability { padding: 64px 20px; }
+  .avail-header h2 { font-size: 32px; }
+  .avail-grid { grid-template-columns: 1fr; gap: 28px; }
+  .cal-legend { flex-wrap: wrap; gap: 12px; padding: 12px 20px; }
+  .policies-card { padding: 32px 24px; border-radius: 8px; }
+  .policies-card h3 { font-size: 22px; }
+
+  /* ── Rooms ── */
+  #rooms { padding: 64px 20px; }
+  .rooms-header { flex-direction: column; align-items: flex-start; gap: 12px; margin-bottom: 40px; }
+  .rooms-header h2 { font-size: 36px; }
+  .rooms-header p { text-align: left; max-width: 100%; }
+  .room-card { grid-template-columns: 1fr; }
+  .room-info { padding: 36px 28px; }
+  .room-name { font-size: 28px; }
+  .room-img-panel { min-height: 260px; height: 260px; border-radius: 0 0 8px 8px; }
+  .rooms-track { padding: 16px 0; }
+  #rooms .rooms-arrows { position: static; transform: none; justify-content: flex-end; padding: 0 4px; }
+  .rooms-controls { margin-top: 20px; }
+
+  /* ── Why ── */
+  #why { padding: 64px 20px; }
+  .why-top h2 { font-size: 32px; }
+  .why-grid { grid-template-columns: 1fr 1fr; gap: 2px; }
+
+  /* ── Families ── */
+  #families { padding: 64px 20px; }
+  .families-inner { grid-template-columns: 1fr; gap: 48px; }
+  .families-text h2 { font-size: 30px; line-height: 1.3; }
+  .img-duo-grid .duo-img-a img { min-height: 220px; }
+  .img-duo-grid .duo-img-b img,
+  .img-duo-grid .duo-img-c img { height: 130px; }
+  .duo-label { display: none; }
+  .walkin-box { padding: 20px 24px; }
+
+  /* ── Reviews ── */
+  #reviews { padding: 64px 20px; }
+  .reviews-top h2 { font-size: 32px; }
+  .reviews-grid { grid-template-columns: 1fr; gap: 16px; }
+  .review-card { padding: 28px 24px; }
+
+  /* ── Footer ── */
+  footer { padding: 48px 20px 32px; }
+  .footer-grid { grid-template-columns: 1fr; gap: 36px; }
+  .footer-brand { font-size: 22px; }
+  .footer-bottom { flex-direction: column; gap: 10px; text-align: center; }
+}
+
+/* Small mobile — 480px and below */
+@media (max-width: 480px) {
+  .why-grid { grid-template-columns: 1fr; }
+  .hero-title { font-size: 30px; }
+  .stat-num { font-size: 28px; }
+}
+
+/* Mobile listing: stack all room slides on narrow screens instead of slider */
+@media (max-width: 768px) {
+  /* Make the slides stack vertically so each room is listed one after another */
+  .rooms-slides {
+    display: block !important;
+    transform: none !important;
+  }
+
+  .room-slide {
+    min-width: auto !important;
+    width: 100% !important;
+    display: block !important;
+    margin-bottom: 18px;
+  }
+
+  /* Ensure each room card occupies the full width and looks like a list item */
+  #rooms .room-card { max-width: 100%; margin: 0 auto; }
+
+  /* Hide slider controls (arrows + counter) on mobile list view */
+  .rooms-controls, .rooms-arrows, .rooms-counter { display: none !important; }
+
+  /* Slightly reduce image height for stacked list readability */
+  .room-img-panel { min-height: 220px; height: 220px; }
+  .room-img-panel img { object-position: center top; }
+
+  /* Make book button full-width within each listed card */
+  .btn-book { width: 100%; }
+}
+
+/* Extra small phones — tighten rooms layout for narrow widths */
+@media (max-width: 420px) {
+  /* Make the room card stack cleanly and reduce paddings */
+  .room-card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 10px;
+    border-radius: 6px;
+    box-shadow: none;
+    background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0.04));
+  }
+
+  .room-info {
+    padding: 16px;
+    border-right: none;
+    background: transparent;
+  }
+
+  .room-img-panel {
+    min-height: 200px;
+    height: 200px;
+    border-radius: 6px;
+    box-shadow: none;
+  }
+
+  .room-img-panel img {
+    position: static;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 6px;
+  }
+
+  .room-img-label {
+    top: 10px; right: 10px;
+    font-size: 14px;
+    padding: 6px 10px;
+  }
+
+  .room-price {
+    font-size: 26px;
+  }
+
+  .room-price-area {
+    border-top: none;
+    padding-top: 12px;
+    flex-direction: column;
+    gap: 10px;
+    align-items: stretch;
+  }
+
+  .btn-book { width: 100%; padding: 12px; }
+
+  /* Center arrows under the slide on very small phones */
+  #rooms .rooms-arrows { position: static; justify-content: center; margin-top: 12px; }
+  .rooms-arrow { width: 44px; height: 44px; }
+
+  /* Ensure the slide track has a small horizontal padding */
+  .rooms-track { padding: 12px 8px; }
+
+  .room-desc-text { font-size: 13px; margin-bottom: 18px; }
+}
+
+
+/* ─── SCROLL ANIMATIONS ─── */
+/* Elements start invisible and slide up — made visible by JS IntersectionObserver */
+.fade-up {
+  opacity: 0;
+  transform: translateY(40px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+
+.fade-up.visible {
+  opacity: 1;
+  transform: translateY(0);
+}

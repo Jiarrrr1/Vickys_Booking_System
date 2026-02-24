@@ -189,6 +189,20 @@
                 <span>Special Request:</span>
                 <span>{{ formData.request }}</span>
               </div>
+              <div class="summary-row">
+                <span>Downpayment </span>
+                <span> 45% </span>
+              </div>
+              <div class="summary-row">
+                <span>Summary</span>
+            <span class="total-amount">₱{{ calculateFinalDownPayment }}</span>
+              </div>
+              <div class="summary-row">
+                <span>Remaining Balance</span>
+            <span class="total-amount">₱{{ calculateBalance }}</span>
+              </div>
+              
+              
               <div class="summary-total">
                 <span>Total:</span>
                 <span class="total-amount">₱{{ calculateTotal }}</span>
@@ -204,9 +218,17 @@
       </div>
     </div>
   </div>
+
+  <!-- Success Modal Component -->
+  <BookingSuccessModal 
+    :is-visible="showSuccessModal"
+    :booking-details="successBookingDetails"
+    @close="showSuccessModal = false"
+  />
 </template>
 
 <script>
+import SuccessfulModal from './SuccessfulModal.vue';
   import { reservationApi } from '@/services/api';
 export default {
   name: 'BookingModal',
@@ -233,7 +255,8 @@ export default {
         checkOut: '',
         guests: 1,
         request: '',
-        paymentMethod: 'gcash'
+        paymentMethod: 'gcash',
+        downPaymentCost: '',
       },
        paymentMethods: [
       { 
@@ -243,13 +266,13 @@ export default {
         description: 'Pay using GCash app',
         icon: '💳'
       },
-      { 
-        id: 'onHand', 
-        name: 'Cash', 
-        value: 'Cash', // Add this
-        description: 'Pay using Cash',
-        icon: '💳'
-      },
+      // { 
+      //   id: 'onHand', 
+      //   name: 'Cash', 
+      //   value: 'Cash', // Add this
+      //   description: 'Pay using Cash',
+      //   icon: '💳'
+      // },
     ],
       isLoading: false,
       errorMessage: '',
@@ -287,7 +310,25 @@ export default {
     calculateTotal() {
       const nights = this.calculateNights
       const pricePerNight = 1000 // ₱1,000 per night
-      return (nights * pricePerNight).toLocaleString()
+      return (nights * pricePerNight)
+    },
+
+    calculateFinalDownPayment(){
+      const total = this.calculateTotal
+      
+      const finalCost = 0.45 * total
+      console.log(finalCost);
+      
+      return (finalCost)  
+    },
+
+    calculateBalance(){
+      const cost = this.calculateTotal
+      const downpayment = this.calculateFinalDownPayment
+
+      const balance = cost - downpayment;
+
+      return(balance)
     }
   },
   methods: {
@@ -373,7 +414,7 @@ export default {
           phoneNumber: this.formData.phone,
           checkIn: this.formData.checkIn,
           checkOut: this.formData.checkOut,
-          guests: parseInt(this.formData.guests), // Ensure it's a number
+          guests: this.formData.guests, // Ensure it's a number
           request: this.formData.request,
           paymentMethod: paymentMethodMap[this.formData.paymentMethod] || this.formData.paymentMethod,
           roomName: this.roomName,
