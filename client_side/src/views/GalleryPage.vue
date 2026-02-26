@@ -1,13 +1,21 @@
 <!-- src/views/GalleryPage.vue -->
 <template>
-  <div>
-    <h1>Gallery</h1>
-    <!-- Your Gallery content here -->
-  </div>
+  <HeroSection/>
+  <FilterBar/>
+  <GallerySection/>
 </template>
 
 <script>
+import FilterBar from '@/components/Gallerypage/FilterBar.vue';
+import GallerySection from '@/components/Gallerypage/GallerySection.vue';
+import HeroSection from '@/components/Gallerypage/HeroSection.vue';
+
 export default {
-  name: 'GalleryPage'
+  name: 'GalleryPage',
+  components: {
+    HeroSection,
+    FilterBar,
+    GallerySection
+  }
 }
 </script>

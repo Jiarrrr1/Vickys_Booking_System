@@ -1,13 +1,24 @@
 <!-- src/views/RoomPage.vue -->
 <template>
-  <div>
-    <h1>Rooms</h1>
-    <!-- Your Room content here -->
-  </div>
+  
+      <HeroSection/>
+      <RoomsGrid/>
+    <BookingModal/>
+
+
 </template>
 
 <script>
+import HeroSection from '@/components/Roompage/HeroSection.vue';
+import RoomsGrid from '@/components/Roompage/RoomsGrid.vue';
+import BookingModal from '@/modal/BookingModal.vue';
+
 export default {
-  name: 'RoomPage'
+  name: 'RoomPage',
+  components: {
+    HeroSection,
+    RoomsGrid,
+    BookingModal
+  }
 }
 </script>

@@ -37,7 +37,7 @@
                       <div class="room-price">₱{{ room.price.toLocaleString() }}</div>
                       <div class="room-price-label">per night</div>
                     </div>
-                    <a :href="`/rooms.html#${room.name.toLowerCase().replace(' ', '-')}`" class="btn-book">Book Now</a>
+                    <a @click="openBooking(room)" class="btn-book">Book Now</a> 
                   </div>
                 </div>
                 <div class="room-img-panel">
@@ -75,6 +75,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { rooms } from '@/data/rooms'  // Import the rooms data
+import router from '@/router'
 
 // State
 const currentSlide = ref(0)
@@ -82,6 +83,10 @@ const track = ref(null)
 const touchStartX = ref(0)
 const MOBILE_BREAKPOINT = 768
 const isMobile = ref(false)
+
+import { useBooking } from '@/utils/useBooking'
+
+const { openBooking } = useBooking()
 
 // Computed
 const currentSlideDisplay = computed(() => {

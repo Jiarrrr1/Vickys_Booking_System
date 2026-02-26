@@ -1,5 +1,721 @@
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: 0;
+/* ============================================================
+   base.css — Vicky's Resort | Shared Base Styles
+   Import this file on every page before any page-specific CSS.
+   ============================================================ */
+
+
+/* ─── RESET & BOX MODEL ─── */
+/* Normalize spacing and sizing across all elements */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+
+/* ─── CSS CUSTOM PROPERTIES (DESIGN TOKENS) ─── */
+/* Central color palette and layout variables shared across the entire site */
+:root {
+  /* Neutrals */
+  --charcoal:        #1e1e1e;
+  --charcoal-mid:    #2a2a2a;
+  --charcoal-light:  #3a3a3a;
+  --charcoal-border: #444;
+
+  /* Light backgrounds */
+  --cream:           #f5f0e8;
+  --cream-light:     #faf7f2;
+
+  /* Brand colors */
+  --gold:            #c9a96e;
+  --gold-light:      #e8d5a3;
+  --gold-dim:        rgba(201, 169, 110, 0.12);
+  --teal:            #4a9e8e;
+  --teal-light:      #6bbdac;
+
+  /* Neutrals */
+  --white:           #ffffff;
+  --text-muted:      #999;
+
+  /* Layout */
+  --site-max:        1300px;
+}
+
+
+/* ─── BASE STYLES ─── */
+/* Smooth scrolling, global typography, background, and element defaults */
+html {
+  scroll-behavior: smooth;
+
+}
+
+/* For WebKit browsers (Chrome, Safari, Edge) */
+html::-webkit-scrollbar {
+    width: 7px;
+    height: 10px;
+}
+
+html::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 5px;
+}
+
+html::-webkit-scrollbar-thumb {
+    background: var(--gold);
+    border-radius: 5px;
+}
+
+html::-webkit-scrollbar-thumb:hover {
+    background: var(--gold-light);
+}
+
+.booking-overlay::-webkit-scrollbar {
+  -webkit-appearance: none; 
+}
+
+input[type=number]::-webkit-inner-spin-button, 
+input[type=number]::-webkit-outer-spin-button { 
+  -webkit-appearance: none; 
+  margin: 0; 
+}
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background-color: var(--charcoal);
+  color: var(--white);
+  overflow-x: hidden;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+h1, h2, h3, h4, h5, h6, p {
+  margin: 0;
+}
+
+a {
+  text-decoration: none;
+}
+
+button {
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer;
+}
+
+
+/* ─── LAYOUT CONTAINERS ─── */
+/* Shared container and inner-container wrappers */
+.container {
+  max-width: 1920px;
+  margin: 0 auto;
+  position: relative;
+  padding-left: 20px;
+  padding-right: 20px;
+}
+
+.inner-container {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+/* Utility for overlapping/positioned children */
+.overlap-container {
+  position: relative;
+}
+
+/* Medium screens */
+@media (min-width: 769px) and (max-width: 1200px) {
+  .inner-container { max-width: 1100px; }
+  .container       { max-width: 1200px; }
+}
+
+/* Desktop */
+@media (min-width: 1201px) {
+  .inner-container { max-width: 1400px; }
+  .container       { max-width: 1920px; }
+}
+
+
+/* ─── NOISE TEXTURE OVERLAY ─── */
+/* Subtle SVG fractal noise fixed over the entire page for visual depth */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.4;
+}
+
+
+/* ─── NAVIGATION BAR ─── */
+/* Fixed top nav shared by all pages */
+#nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 1000;
+  padding: 0 60px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.85), transparent);
+  transition: background 0.4s;
+}
+
+/* Transparent gradient variant used on the homepage hero */
+#nav.transparent {
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.85), transparent);
+  border-bottom: none;
+}
+
+/* Solidifies when user scrolls (JS adds .scrolled) */
+#nav.scrolled {
+  background: rgba(20, 20, 20, 0.97);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--charcoal-border);
+}
+
+/* Resort brand name / logo */
+.nav-logo {
+  font-family: 'Playfair Display', serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--white);
+  letter-spacing: 1px;
+}
+
+.nav-logo a {
+    color: var(--white);
+}
+
+.nav-logo span { color: var(--gold); }
+
+/* Horizontal nav link list */
+.nav-links {
+  display: flex;
+  gap: 36px;
+  list-style: none;
+  align-items: center;
+}
+
+/* Individual nav link with animated gold underline */
+.nav-links a {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  transition: color 0.3s;
+  position: relative;
+}
+
+.nav-links a::after {
+  content: '';
+  position: absolute;
+  bottom: -3px; left: 0;
+  width: 0; height: 1px;
+  background: var(--gold);
+  transition: width 0.3s;
+}
+
+.nav-links a:hover,
+.nav-links a.active { color: var(--gold); }
+
+.nav-links a:hover::after,
+.nav-links a.active::after { width: 100%; }
+
+/* "Book Now" CTA button in the nav */
+.nav-book {
+  background: var(--gold);
+  color: var(--charcoal) !important;
+  padding: 10px 24px;
+  border-radius: 2px;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  transition: background 0.3s !important;
+}
+
+.nav-book:hover { background: var(--gold-light) !important; }
+.nav-book::after { display: none !important; }
+
+
+/* ─── HAMBURGER MENU ─── */
+/* Hidden by default on desktop; shown via media query on mobile */
+.nav-hamburger {
+  display: none;
+  flex-direction: column;
+  gap: 5px;
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  z-index: 1100;
+}
+
+.nav-hamburger span {
+  display: block;
+  width: 24px;
+  height: 2px;
+  background: var(--white);
+  border-radius: 2px;
+  transition: all 0.3s;
+}
+
+/* Animate hamburger → X when the mobile menu is open */
+.nav-hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.nav-hamburger.open span:nth-child(2) { opacity: 0; }
+.nav-hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+
+/* ─── SECTION LABEL ─── */
+/* Reusable small uppercase label with a gold leading line */
+.section-label {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.section-label::before {
+  content: '';
+  width: 40px; height: 1px;
+  background: var(--gold);
+}
+
+.section-label span {
+  font-size: 11px;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: var(--gold);
+  font-weight: 500;
+}
+
+/* Centered variant — gold lines on both sides */
+.section-label-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.section-label-center::before,
+.section-label-center::after {
+  content: '';
+  width: 40px; height: 1px;
+  background: var(--gold);
+}
+
+.section-label-center span {
+  font-size: 11px;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: var(--gold);
+  font-weight: 500;
+}
+
+
+/* ─── SHARED BUTTON STYLES ─── */
+/* Filled gold primary button */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--gold);
+  color: var(--charcoal);
+  padding: 16px 40px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  border-radius: 2px;
+  border: 2px solid var(--gold);
+  transition: all 0.3s;
+}
+
+.btn-primary:hover {
+  background: transparent;
+  color: var(--gold);
+}
+
+/* Transparent outlined secondary button */
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: transparent;
+  color: var(--white);
+  padding: 16px 40px;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  border-radius: 2px;
+  border: 1.5px solid rgba(255, 255, 255, 0.5);
+  transition: all 0.3s;
+}
+
+.btn-secondary:hover {
+  border-color: var(--white);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Transparent outlined button on light backgrounds */
+.btn-outline {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: transparent;
+  color: var(--white);
+  padding: 16px 40px;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  border-radius: 2px;
+  border: 1.5px solid rgba(255, 255, 255, 0.3);
+  transition: all 0.3s;
+}
+
+.btn-outline:hover {
+  border-color: var(--white);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* Solid gold CTA button (used in cards / policy sections) */
+.btn-gold {
+  display: inline-block;
+  background: var(--gold);
+  color: var(--charcoal);
+  padding: 14px 32px;
+  border-radius: 2px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  transition: all 0.3s;
+}
+
+.btn-gold:hover { background: var(--gold-light); }
+
+/* Ghost / text-link button with animated arrow */
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--gold);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  transition: gap 0.3s;
+}
+
+.btn-ghost::after {
+  content: '→';
+  transition: transform 0.3s;
+}
+
+.btn-ghost:hover { gap: 16px; }
+.btn-ghost:hover::after { transform: translateX(4px); }
+
+
+/* ─── ORNAMENT RULE ─── */
+/* Decorative horizontal divider with ornamental symbols */
+.ornament-rule {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.ornament-rule::before,
+.ornament-rule::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--charcoal-border));
+}
+
+.ornament-rule::after {
+  background: linear-gradient(to left, transparent, var(--charcoal-border));
+}
+
+.ornament-rule span {
+  color: var(--gold);
+  font-size: 18px;
+  letter-spacing: 8px;
+}
+
+
+/* ─── BREADCRUMB ─── */
+/* Page breadcrumb trail (Home / Current Page) */
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 28px;
+  font-size: 12px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.breadcrumb a {
+  color: var(--gold);
+  transition: opacity 0.2s;
+}
+
+.breadcrumb a:hover { opacity: 0.7; }
+.breadcrumb-sep { color: var(--charcoal-border); }
+
+
+/* ─── FOOTER ─── */
+/* Dark full-width footer shared across all pages */
+footer {
+  background: #111;
+  border-top: 1px solid var(--charcoal-border);
+  padding: 80px 60px 40px;
+}
+
+.footer-inner {
+  max-width: 1300px;
+  margin: 0 auto;
+}
+
+/* Three-column grid: brand desc | contact | quick links */
+.footer-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 60px;
+  margin-bottom: 60px;
+}
+
+/* Resort brand name in the footer */
+.footer-brand {
+  font-family: 'Playfair Display', serif;
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 20px;
+}
+
+.footer-brand span { color: var(--gold); }
+
+/* Short tagline below the brand name */
+.footer-desc {
+  font-size: 14px;
+  line-height: 1.8;
+  color: rgba(255, 255, 255, 0.5);
+  max-width: 360px;
+}
+
+/* Column headings (e.g. "Contact Us", "Quick Links") */
+.footer-col h4 {
+  font-size: 11px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 24px;
+}
+
+/* Contact row: icon + text */
+.footer-contact-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.footer-contact-item span:first-child {
+  color: var(--gold);
+  font-size: 16px;
+  margin-top: 1px;
+}
+
+.footer-contact-item span:last-child {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+  line-height: 1.6;
+}
+
+/* Quick links list */
+.footer-links,
+.footer-links-list {
+  list-style: none;
+}
+
+.footer-links li,
+.footer-links-list li { margin-bottom: 12px; }
+
+.footer-links a,
+.footer-links-list a {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.55);
+  transition: color 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.footer-links a::before {
+  content: '→';
+  color: var(--gold);
+  font-size: 12px;
+  opacity: 0;
+  transform: translateX(-8px);
+  transition: all 0.2s;
+}
+
+.footer-links a:hover,
+.footer-links-list a:hover { color: var(--white); }
+
+.footer-links a:hover::before {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Copyright bar at the very bottom */
+.footer-bottom {
+  border-top: 1px solid var(--charcoal-border);
+  padding-top: 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.footer-bottom p {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+/* Italic gold tagline on the right of the copyright bar */
+.footer-bottom-brand,
+.footer-tagline {
+  font-family: 'Playfair Display', serif;
+  font-size: 13px;
+  color: var(--gold);
+  opacity: 0.6;
+  font-style: italic;
+}
+
+/* Simplified single-row footer variant (used on rates/about pages) */
+.footer-row {
+  max-width: 1300px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.footer-copy {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+
+/* ─── SCROLL ANIMATIONS ─── */
+/* Elements start invisible and slide up — made visible by JS IntersectionObserver */
+.fade-up {
+  opacity: 0;
+  transform: translateY(36px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+
+.fade-up.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Staggered animation delays for grid children */
+.fade-up-delay-1 { transition-delay: 0.1s; }
+.fade-up-delay-2 { transition-delay: 0.2s; }
+.fade-up-delay-3 { transition-delay: 0.3s; }
+.fade-up-delay-4 { transition-delay: 0.4s; }
+
+
+/* ─── RESPONSIVE — SHARED BREAKPOINTS ─── */
+
+/* Tablet — 1024px and below */
+@media (max-width: 1024px) {
+  #nav { padding: 0 30px; }
+  body { font-size: 15px; }
+  .footer-grid { grid-template-columns: 1fr 1fr; }
+}
+
+/* Mobile — 768px and below */
+@media (max-width: 768px) {
+  /* Nav */
+  #nav { padding: 0 20px; height: 64px; }
+  .nav-hamburger { display: flex; }
+
+  .nav-links {
+    display: none;
+    position: fixed;
+    top: 64px; left: 0; right: 0;
+    background: rgba(20, 20, 20, 0.98);
+    backdrop-filter: blur(16px);
+    flex-direction: column;
+    gap: 0;
+    padding: 12px 0 24px;
+    border-bottom: 1px solid var(--charcoal-border);
+    z-index: 999;
+    align-items: stretch;
+  }
+
+  .nav-links.open { display: flex; }
+
+  .nav-links li { width: 100%; }
+
+  .nav-links a {
+    display: block;
+    padding: 14px 24px;
+    font-size: 15px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    letter-spacing: 0;
+  }
+
+  .nav-links a::after { display: none; }
+
+  .nav-book {
+    margin: 12px 24px 0;
+    display: block;
+    text-align: center;
+    border-radius: 4px;
+    padding: 14px 24px !important;
+  }
+
+  /* Footer */
+  footer { padding: 48px 20px 32px; }
+  .footer-grid { grid-template-columns: 1fr; gap: 36px; }
+  .footer-bottom { flex-direction: column; gap: 10px; text-align: center; }
+  .footer-row { flex-direction: column; gap: 12px; text-align: center; }
+  .footer-brand { font-size: 22px; }
+
+  /* Shared hero/header offset */
+  #page-header { padding-top: 64px; }
+
+  /* Shared button stacking */
+  .cta-btns,
+  .hero-btns {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .btn-primary,
+  .btn-secondary,
+  .btn-outline {
+    width: 100%;
+    max-width: 280px;
+    text-align: center;
+    justify-content: center;
+  }
+
+  /* Ensure images never overflow */
+  img { max-width: 100%; height: auto; }
 }

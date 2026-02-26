@@ -4,10 +4,12 @@
     <HeroSection/>
     <InfoStrip/>
     <Experience/>
+    <Availability/>
     <Accomodations/>
     <Why/>
     <Families/>
     <Reviews/>
+    <BookingModal/>
   </div>
 </template>
 
@@ -19,6 +21,8 @@ import Accomodations from '@/components/Homepage/Accomodations.vue';
 import Why from '@/components/Homepage/Why.vue';
 import Families from '@/components/Homepage/Families.vue';
 import Reviews from '@/components/Homepage/Reviews.vue';
+import Availability from '@/components/Homepage/Availability.vue';
+import BookingModal from '@/modal/BookingModal.vue';
 
 export default {
   name: 'HomePage',
@@ -26,10 +30,12 @@ export default {
     HeroSection,
     InfoStrip,
     Experience,
+    Availability,
     Accomodations,
     Why,
     Families,
-    Reviews
+    Reviews,
+    BookingModal
   }
 }
 </script>

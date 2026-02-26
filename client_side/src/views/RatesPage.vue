@@ -1,13 +1,23 @@
 <!-- src/views/RatesPage.vue -->
 <template>
-  <div>
-    <h1>Rates & Packages</h1>
-    <!-- Your rates content here -->
-  </div>
+  <HeroSection/>
+  <StickyTab/>
+  
+    <RateSection/>
+  
 </template>
 
 <script>
+import HeroSection from '@/components/RatesPage/HeroSection.vue';
+import RateSection from '@/components/RatesPage/RateSection.vue';
+import StickyTab from '@/components/RatesPage/StickyTab.vue';
+
 export default {
-  name: 'RatesPage'
+  name: 'RatesPage',
+  components: {
+    HeroSection,
+    StickyTab,
+    RateSection
+  }
 }
 </script>
