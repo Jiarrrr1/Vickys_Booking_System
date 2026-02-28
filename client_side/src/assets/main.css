@@ -406,7 +406,7 @@
   border: 1.5px solid transparent;
 }
 
-.cal-day:hover:not(.booked):not(.empty) { background: var(--teal); color: var(--white); transform: scale(1.05); }
+.cal-day:hover:not(.booked):not(.empty) { background: #4ff776; color: var(--charcoal); transform: scale(1.05); }
 .cal-day.empty   { background: transparent; cursor: default; }
 .cal-day.today   { border-color: var(--teal); font-weight: 700; }
 .cal-day.booked  { background: #fde8e8; color: #c0392b; cursor: pointer; }
@@ -420,7 +420,7 @@
   font-weight: 600;
 }
 
-.cal-day.selected { background: var(--teal); color: var(--white); border-color: #3a8e7e; }
+/* .cal-day.selected { background: var(--teal); color: var(--white); border-color: #3a8e7e; } */
 .cal-day.checkin  { background: var(--charcoal); color: var(--white); }
 
 .cal-footer {
