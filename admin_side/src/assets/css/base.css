@@ -1,0 +1,527 @@
+/* ═══════════════════════════════════════════════════════
+ *  VICKY'S RESORT — BASE STYLES
+ *  base.css
+ *  
+ *  Shared styles used across all admin pages.
+ *  Includes: Reset, Design Tokens, Animations, App Shell,
+ *  Sidebar, Header, and common UI components.
+ ═══════════════════════════════════════════════════════ */
+
+
+/* ═══════════════════════════════════════════════════════
+ *  1. RESET
+ ═══════════════════════════════════════════════════════ */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  font-family: 'DM Sans', sans-serif;
+  background: #f5f2ee;
+  color: #1a1a1a;
+  -webkit-font-smoothing: antialiased;
+}
+
+button, input, select, textarea {
+  font-family: inherit;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cdc7be;
+  border-radius: 4px;
+}
+
+
+/* ═══════════════════════════════════════════════════════
+ *  2. DESIGN TOKENS (CSS VARIABLES)
+ ═══════════════════════════════════════════════════════ */
+:root {
+  /* Color palette */
+  --sand: #f5f2ee;
+  --sand-dk: #ede8e1;
+  --cream: #faf8f5;
+  --white: #ffffff;
+  --border: #e4ddd4;
+  --border-dk: #cec6ba;
+
+  /* Primary brand */
+  --forest: #222222;
+  --forest-mid: #3a3a3a;
+  --forest-lt: #f0f0f0;
+  --forest-glow: rgba(34, 34, 34, 0.14);
+
+  /* Accent colors */
+  --amber: #c97c28;
+  --amber-lt: #fdf3e7;
+  --red: #c0392b;
+  --red-lt: #fdf0ee;
+  --blue: #2563a8;
+  --blue-lt: #eef4fc;
+  --green: #27ae60;
+  --green-lt: #e8f8f0;
+
+  /* Text scale */
+  --t1: #1a1a18;
+  --t2: #4a4a45;
+  --t3: #888880;
+  --t4: #b5b0a8;
+
+  /* Layout */
+  --r: 14px;
+  --r-sm: 8px;
+  --sw: 256px;
+  --hh: 64px;
+
+  /* Shadows */
+  --sh-sm: 0 1px 4px rgba(0, 0, 0, 0.06), 0 2px 12px rgba(0, 0, 0, 0.04);
+  --sh: 0 4px 20px rgba(0, 0, 0, 0.08), 0 1px 4px rgba(0, 0, 0, 0.05);
+  --sh-lg: 0 12px 40px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.06);
+
+  /* Transition */
+  --tr: 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+
+/* ═══════════════════════════════════════════════════════
+ *  3. ANIMATIONS
+ ═══════════════════════════════════════════════════════ */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.fu { animation: fadeUp 0.42s ease both; }
+.fu1 { animation: fadeUp 0.42s 0.06s ease both; }
+.fu2 { animation: fadeUp 0.42s 0.12s ease both; }
+.fu3 { animation: fadeUp 0.42s 0.18s ease both; }
+.fu4 { animation: fadeUp 0.42s 0.24s ease both; }
+.fu5 { animation: fadeUp 0.42s 0.3s ease both; }
+.fu6 { animation: fadeUp 0.42s 0.36s ease both; }
+
+
+/* ═══════════════════════════════════════════════════════
+ *  4. APP SHELL
+ ═══════════════════════════════════════════════════════ */
+#app-shell {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+
+/* ═══════════════════════════════════════════════════════
+ *  5. SIDEBAR
+ ═══════════════════════════════════════════════════════ */
+.sidebar {
+  width: var(--sw);
+  flex-shrink: 0;
+  background: var(--forest);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+.sidebar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 100% 40% at 50% -5%, rgba(255, 255, 255, 0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 70% 70% at 110% 110%, rgba(0, 0, 0, 0.15) 0%, transparent 60%);
+}
+
+/* Logo */
+.slogo {
+  padding: 24px 18px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  position: relative;
+}
+
+.smark {
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.smark svg {
+  width: 20px;
+  height: 20px;
+  stroke: #fff;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sbname {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 17px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.2;
+}
+
+.sbsub {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.45);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-top: 1px;
+}
+
+/* Navigation */
+.snav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 12px 20px;
+  position: relative;
+}
+
+.sgroup {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.4);
+  padding: 12px 12px 6px;
+  font-weight: 600;
+}
+
+.sitem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--r-sm);
+  font-size: 13.5px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  transition: all var(--tr);
+  position: relative;
+  text-decoration: none;
+  margin-bottom: 2px;
+}
+
+.sitem svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.7;
+  transition: opacity var(--tr);
+}
+
+.sitem:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.sitem:hover svg {
+  opacity: 1;
+}
+
+.sitem.active {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-weight: 600;
+}
+
+.sitem.active svg {
+  opacity: 1;
+}
+
+.snbadge {
+  margin-left: auto;
+  background: var(--amber);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 10px;
+  min-width: 18px;
+  text-align: center;
+}
+
+/* User footer */
+.sfooter {
+  padding: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  position: relative;
+}
+
+.uchip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border-radius: var(--r-sm);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.uavatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--amber);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.uname {
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  line-height: 1.2;
+}
+
+.urole {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  line-height: 1.2;
+}
+
+
+/* ═══════════════════════════════════════════════════════
+ *  6. MAIN AREA
+ ═══════════════════════════════════════════════════════ */
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Header */
+.header {
+  height: var(--hh);
+  background: var(--cream);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 28px;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10;
+}
+
+.htitle-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
+.htitle {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--t1);
+  line-height: 1.2;
+}
+
+.hsub {
+  font-size: 12.5px;
+  color: var(--t3);
+  margin-top: 2px;
+  line-height: 1.3;
+}
+
+.hbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 8px 12px;
+  width: 240px;
+  transition: all var(--tr);
+}
+
+.hbox:focus-within {
+  border-color: var(--forest);
+  box-shadow: 0 0 0 3px rgba(34, 34, 34, 0.08);
+}
+
+.hbox svg {
+  width: 16px;
+  height: 16px;
+  stroke: var(--t3);
+  fill: none;
+  stroke-width: 2;
+  flex-shrink: 0;
+}
+
+.hbox input {
+  border: none;
+  outline: none;
+  background: transparent;
+  flex: 1;
+  font-size: 13px;
+  color: var(--t1);
+}
+
+.hbox input::placeholder {
+  color: var(--t4);
+}
+
+.hicon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--white);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  transition: all var(--tr);
+}
+
+.hicon:hover {
+  background: var(--sand);
+  border-color: var(--border-dk);
+}
+
+.hicon svg {
+  width: 18px;
+  height: 18px;
+  stroke: var(--t2);
+  fill: none;
+  stroke-width: 2;
+}
+
+.ndot {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--red);
+  border: 2px solid var(--cream);
+}
+
+.datechip {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--t2);
+  background: var(--white);
+  border: 1px solid var(--border);
+  padding: 8px 12px;
+  border-radius: var(--r-sm);
+  letter-spacing: 0.02em;
+}
+
+/* Content area */
+.content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 28px;
+}
+
+.section {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+
+/* ═══════════════════════════════════════════════════════
+ *  7. RESPONSIVE
+ ═══════════════════════════════════════════════════════ */
+@media (max-width: 1024px) {
+  :root {
+    --sw: 220px;
+  }
+
+  .header {
+    padding: 0 20px;
+  }
+
+  .hbox {
+    width: 180px;
+  }
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    left: -100%;
+    top: 0;
+    bottom: 0;
+    z-index: 100;
+    transition: left 0.3s;
+  }
+
+  .sidebar.active {
+    left: 0;
+  }
+
+  .main {
+    width: 100%;
+  }
+
+  .hbox {
+    display: none;
+  }
+}
