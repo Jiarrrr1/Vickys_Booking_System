@@ -72,10 +72,9 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
+import authService from '@/services/auth'  // default import
 
 const router = useRouter()
-const authStore = useAuthStore()
 
 const credentials = ref({
   username: '',
@@ -90,12 +89,12 @@ const handleLogin = async () => {
   error.value = ''
 
   try {
-    const success = await authStore.login(credentials.value)
+    const result = await authService.login(credentials.value)
     
-    if (success) {
-      router.push('/')
+    if (result.success) {
+      router.push('/dashboard')  // Redirect to dashboard, not root
     } else {
-      error.value = authStore.error || 'Login failed. Please try again.'
+      error.value = result.error || 'Login failed. Please try again.'
     }
   } catch (err) {
     error.value = 'An unexpected error occurred. Please try again.'

@@ -29,9 +29,22 @@ button, input, select, textarea {
   font-family: inherit;
 }
 
+select {
+  border-radius: 10px;
+  padding: 5px 7px;
+  outline: none;
+  border: none;
+  background-color: transparent;
+}
+
+.csp{
+  color: #c0392b;
+  border: solid 1px red;
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
-  width: 5px;
+  width: 10px;
   height: 5px;
 }
 
@@ -83,7 +96,7 @@ button, input, select, textarea {
   --r: 14px;
   --r-sm: 8px;
   --sw: 256px;
-  --hh: 64px;
+  --hh: 80px;
 
   /* Shadows */
   --sh-sm: 0 1px 4px rgba(0, 0, 0, 0.06), 0 2px 12px rgba(0, 0, 0, 0.04);
@@ -367,6 +380,7 @@ button, input, select, textarea {
 .htitle-wrap {
   flex: 1;
   min-width: 0;
+  
 }
 
 .htitle {

@@ -489,11 +489,9 @@
   border: 1.5px solid transparent;
 }
 
-.cal-day:hover:not(.booked):not(.empty) {
-  background: #4ff776;
-  color: var(--charcoal);
-  transform: scale(1.05);
-}
+
+
+
 
 .cal-day.empty {
   background: transparent;

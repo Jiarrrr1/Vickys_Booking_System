@@ -1,6 +1,6 @@
-// src/composables/useBookingModal.js
+// src/utils/useBookingModal.js
 import { ref, reactive, computed, watch } from 'vue'
-import { reservations } from '@/data/reservations'
+import { api } from '../services/api'
 
 export function useBookingModal(bookingRoom, isOpen, closeBooking) {
   const stepLabels = ['Guest Info', 'Booking Date', 'Payment', 'Confirm']
@@ -13,6 +13,9 @@ export function useBookingModal(bookingRoom, isOpen, closeBooking) {
   const checkOutError = ref('')
   const isSubmitting = ref(false)
   
+  // ⚠️ ADD THIS MISSING REF ⚠️
+  const isLoadingReservations = ref(false)
+  
   // Field validation errors
   const fieldErrors = reactive({
     name: '',
@@ -23,8 +26,8 @@ export function useBookingModal(bookingRoom, isOpen, closeBooking) {
     rfrncNumber: ''
   })
 
-  // Use reservations from data file
-  const existingReservations = ref(reservations)
+  // Existing reservations from backend
+  const existingReservations = ref([])
 
   // Form data
   const form = reactive({
@@ -71,9 +74,9 @@ export function useBookingModal(bookingRoom, isOpen, closeBooking) {
   })
 
   const blockedDateRanges = computed(() => {
-    if (!bookingRoom.id) return []
+    if (!bookingRoom.name || !existingReservations.value.length) return []
     return existingReservations.value.filter(
-      res => res.roomId === bookingRoom.id
+      res => res.roomName === bookingRoom.name
     )
   })
 
@@ -102,10 +105,8 @@ export function useBookingModal(bookingRoom, isOpen, closeBooking) {
     return roomPrice * nights
   })
 
-  // Calculate downpayment (50% of total price or full payment)
+  // Calculate downpayment (50% of total price)
   const computeDownpayment = computed(() => {
-    
-    // Downpayment is 50% of total price
     return Math.round(totalPrice.value * 0.5)
   })
 
@@ -121,11 +122,11 @@ export function useBookingModal(bookingRoom, isOpen, closeBooking) {
   // DATE BLOCKING FUNCTIONS
   // ========================================
 
-  function getBlockedDatesSet(roomId) {
+  function getBlockedDatesSet() {
     const blockedDates = new Set()
     
     const roomReservations = existingReservations.value.filter(
-      res => res.roomId === roomId
+      res => res.roomName === bookingRoom.name
     )
     
     roomReservations.forEach(reservation => {
@@ -142,13 +143,15 @@ export function useBookingModal(bookingRoom, isOpen, closeBooking) {
     return blockedDates
   }
 
-  function isDateBlocked(date, roomId) {
-    const blockedDates = getBlockedDatesSet(roomId)
+  function isDateBlocked(date) {
+    if (!bookingRoom.name) return false
+    const blockedDates = getBlockedDatesSet()
     return blockedDates.has(date)
   }
 
-  function hasBlockedDatesInRange(startDate, endDate, roomId) {
-    const blockedDates = getBlockedDatesSet(roomId)
+  function hasBlockedDatesInRange(startDate, endDate) {
+    if (!bookingRoom.name) return false
+    const blockedDates = getBlockedDatesSet()
     const start = new Date(startDate)
     const end = new Date(endDate)
     
@@ -171,7 +174,7 @@ export function useBookingModal(bookingRoom, isOpen, closeBooking) {
     checkInError.value = ''
     fieldErrors.checkIn = ''
     
-    if (!form.checkIn || !bookingRoom.id) return
+    if (!form.checkIn || !bookingRoom.name) return
     
     const selectedDate = new Date(form.checkIn)
     const today = new Date()
@@ -184,7 +187,7 @@ export function useBookingModal(bookingRoom, isOpen, closeBooking) {
       return
     }
     
-    if (isDateBlocked(form.checkIn, bookingRoom.id)) {
+    if (isDateBlocked(form.checkIn)) {
       checkInError.value = 'This date is not available. Please select another date.'
       fieldErrors.checkIn = 'This date is not available. Please select another date.'
       form.checkIn = ''
@@ -206,7 +209,7 @@ export function useBookingModal(bookingRoom, isOpen, closeBooking) {
     checkOutError.value = ''
     fieldErrors.checkOut = ''
     
-    if (!form.checkIn || !form.checkOut || !bookingRoom.id) return
+    if (!form.checkIn || !form.checkOut || !bookingRoom.name) return
     
     if (form.checkOut <= form.checkIn) {
       checkOutError.value = 'Check-out must be after check-in date'
@@ -215,7 +218,7 @@ export function useBookingModal(bookingRoom, isOpen, closeBooking) {
       return
     }
     
-    if (hasBlockedDatesInRange(form.checkIn, form.checkOut, bookingRoom.id)) {
+    if (hasBlockedDatesInRange(form.checkIn, form.checkOut)) {
       checkOutError.value = 'Your selected dates overlap with an existing reservation'
       fieldErrors.checkOut = 'Your selected dates overlap with an existing reservation'
       form.checkOut = ''
@@ -247,7 +250,7 @@ export function useBookingModal(bookingRoom, isOpen, closeBooking) {
       fieldErrors.phone = 'This field is required'
       isValid = false
     } else if (String(form.phone).trim().length !== 10) {
-      fieldErrors.phone = 'Phone number must be 10 characters'
+      fieldErrors.phone = 'Phone number must be 10 digits'
       isValid = false
     } else {
       fieldErrors.phone = ''
@@ -260,8 +263,8 @@ export function useBookingModal(bookingRoom, isOpen, closeBooking) {
     let isValid = true
     
     if (!form.checkIn) {
-      fieldErrors.checkIn = 'This field is required'
-      checkInError.value = 'This field is required'
+      fieldErrors.checkIn = 'Check-in date is required'
+      checkInError.value = 'Check-in date is required'
       isValid = false
     } else if (checkInError.value) {
       isValid = false
@@ -270,8 +273,8 @@ export function useBookingModal(bookingRoom, isOpen, closeBooking) {
     }
     
     if (!form.checkOut) {
-      fieldErrors.checkOut = 'This field is required'
-      checkOutError.value = 'This field is required'
+      fieldErrors.checkOut = 'Check-out date is required'
+      checkOutError.value = 'Check-out date is required'
       isValid = false
     } else if (checkOutError.value) {
       isValid = false
@@ -286,7 +289,7 @@ export function useBookingModal(bookingRoom, isOpen, closeBooking) {
     let isValid = true
     
     if (!form.rfrncNumber) {
-      fieldErrors.rfrncNumber = 'This field is required'
+      fieldErrors.rfrncNumber = 'Reference number is required'
       isValid = false
     } else if (form.rfrncNumber.toString().length !== 13) {
       fieldErrors.rfrncNumber = 'Reference number must be 13 digits'
@@ -314,6 +317,7 @@ export function useBookingModal(bookingRoom, isOpen, closeBooking) {
   }
 
   function formatDate(dateString) {
+    if (!dateString) return ''
     const date = new Date(dateString)
     return date.toLocaleDateString('en-US', { 
       month: 'short', 
@@ -326,16 +330,96 @@ export function useBookingModal(bookingRoom, isOpen, closeBooking) {
   // API FUNCTIONS
   // ========================================
 
-  async function fetchReservations(roomId) {
+  async function fetchReservations() {
+    console.log('📋 Fetching all reservations')
+    isLoadingReservations.value = true
+    
     try {
-      // TODO: Replace with actual API call
-      // const response = await fetch(`/api/reservations?roomId=${roomId}`)
-      // const data = await response.json()
-      // existingReservations.value = data
+      const response = await api.getAllReservations()
+      console.log('📥 Reservations response:', response)
       
-      console.log('Fetching reservations for room:', roomId)
+      // Handle response (it might be { data: [...] } or direct array)
+      const reservationsData = response.data || response
+      
+      if (Array.isArray(reservationsData)) {
+        existingReservations.value = reservationsData
+        console.log(`✅ Found ${existingReservations.value.length} total reservations`)
+        
+        // Log filtered for current room
+        const roomReservations = existingReservations.value.filter(
+          res => res.roomName === bookingRoom.name
+        )
+        console.log(`🏨 Found ${roomReservations.length} reservations for room:`, bookingRoom.name)
+      } else {
+        existingReservations.value = []
+        console.warn('⚠️ Unexpected response format:', reservationsData)
+      }
     } catch (error) {
-      console.error('Error fetching reservations:', error)
+      console.error('❌ Error fetching reservations:', error)
+      existingReservations.value = []
+    } finally {
+      isLoadingReservations.value = false
+    }
+  }
+
+  async function getReservation(id){
+    isLoadingReservations.value = true
+    
+    try {
+      const response = await api.getReservation(id)
+      return response.reservationId
+    } catch (error) {
+      console.error('❌ Error fetching reservations:', error)
+
+    }finally {
+      isLoadingReservations.value = false
+    }
+  }
+
+  async function submitReservation() {
+    try {
+      isSubmitting.value = true
+      
+      const reservationData = {
+        fullName: form.name,
+        email: form.email,
+        phoneNumber: form.phone,
+        guests: form.guestCount,
+        request: form.specialReq || "",
+        checkIn: form.checkIn,
+        checkOut: form.checkOut,
+        rfrncNumber: form.rfrncNumber,
+        roomId: bookingRoom.id,
+        roomName: bookingRoom.name,
+        totalNights: totalNights.value,
+        total: totalPrice.value,
+        downpayment: computeDownpayment.value,
+        remainingBalance: computeRemainingBalance.value,
+        paymentMethod: form.payType,
+        status: 'Confirmed'
+      }
+      
+      console.log('📦 Submitting reservation:', reservationData)
+      
+      const response = await api.createReservation(reservationData)
+      console.log('✅ Reservation response:', response)
+      
+      refNumber.value = 'VR-' + Math.floor(100000 + Math.random() * 900000)
+      submitted.value = true
+      
+      // Refresh reservations list to update blocked dates
+      await fetchReservations()
+      
+      setTimeout(() => {
+        closeBooking()
+        resetForm()
+      }, 3000)
+      
+    } catch (error) {
+      console.error('❌ Error submitting reservation:', error)
+      alert('Failed to create reservation: ' + error.message)
+    } finally {
+      isSubmitting.value = false
     }
   }
 
@@ -344,91 +428,27 @@ export function useBookingModal(bookingRoom, isOpen, closeBooking) {
   // ========================================
 
   async function nextStep() {
-    // Validate based on current step
-    if (currentStep.value === 1) {
-      if (!validateStep1()) {
-        return
-      }
+    if (currentStep.value === 1 && !validateStep1()) {
+      return
     }
     
-    if (currentStep.value === 2) {
-      if (!validateStep2()) {
-        return
-      }
+    if (currentStep.value === 2 && !validateStep2()) {
+      return
     }
     
-    if (currentStep.value === 3) {
-      if (!validateStep3()) {
-        return
-      }
+    if (currentStep.value === 3 && !validateStep3()) {
+      return
     }
     
     if (currentStep.value < 4) {
       currentStep.value++
     } else {
-      // Final step (step 4) - submit booking
-      isSubmitting.value = true
-      
-      // Simulate API call delay (remove this in production)
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      
-      // Generate reference number
-      refNumber.value = 'VR-' + Math.floor(100000 + Math.random() * 900000)
-      submitted.value = true
-      
-      console.log('=== BOOKING SUBMITTED ===')
-      console.log('Submitted:', submitted.value)
-      console.log('Reference Number:', refNumber.value)
-      console.log('Form Data:', JSON.stringify(form, null, 2))
-      console.log('========================')
-      
-      // Hide loading state
-      isSubmitting.value = false
-      
-      // Show success - modal will display success view
-      // It will auto-close after 3 seconds
-      setTimeout(() => {
-        closeBooking()
-      }, 3000)
+      await submitReservation()
     }
   }
 
   function prevStep() {
     if (currentStep.value > 1) currentStep.value--
-  }
-
-  function bookAnother() {
-    // Reset to initial state
-    submitted.value = false
-    currentStep.value = 1
-    checkInError.value = ''
-    checkOutError.value = ''
-    
-    Object.assign(fieldErrors, {
-      name: '',
-      email: '',
-      phone: '',
-      checkIn: '',
-      checkOut: '',
-      rfrncNumber: ''
-    })
-    
-    Object.assign(form, {
-      name: '', 
-      email: '', 
-      phone: '', 
-      guestCount: 2,
-      specialReq: '', 
-      checkIn: '', 
-      checkOut: '', 
-      notes: '', 
-      payType: 'down', 
-      rfrncNumber: '',
-      totalNights: 0
-    })
-    
-    // Close the modal
-    closeBooking()
   }
 
   function resetForm() {
@@ -437,6 +457,8 @@ export function useBookingModal(bookingRoom, isOpen, closeBooking) {
     checkInError.value = ''
     checkOutError.value = ''
     refNumber.value = ''
+    isSubmitting.value = false
+    isLoadingReservations.value = false
     
     Object.assign(fieldErrors, {
       name: '',
@@ -469,14 +491,23 @@ export function useBookingModal(bookingRoom, isOpen, closeBooking) {
   // Watch for room changes
   watch(() => bookingRoom.id, (newRoomId) => {
     if (newRoomId) {
-      fetchReservations(newRoomId)
-      // Clear date fields when room changes
+      console.log('🔄 Room changed, fetching reservations...')
+      fetchReservations()
       form.checkIn = ''
       form.checkOut = ''
       checkInError.value = ''
       checkOutError.value = ''
       fieldErrors.checkIn = ''
       fieldErrors.checkOut = ''
+    }
+  })
+
+  // Watch modal open state
+  watch(isOpen, (newVal) => {
+    if (newVal && bookingRoom.id) {
+      console.log('🔄 Modal opened, fetching reservations...')
+      fetchReservations()
+      resetForm()
     }
   })
 
@@ -498,10 +529,10 @@ export function useBookingModal(bookingRoom, isOpen, closeBooking) {
     existingReservations,
     form,
     isSubmitting,
+    isLoadingReservations, // ⚠️ DON'T FORGET TO RETURN THIS ⚠️
     
     // Computed
     minDate,
-    blockedDateRanges,
     maxCheckInDate,
     maxCheckOutDate,
     minCheckOutDate,
@@ -509,6 +540,7 @@ export function useBookingModal(bookingRoom, isOpen, closeBooking) {
     totalPrice,
     computeDownpayment,
     computeRemainingBalance,
+    blockedDateRanges,
     
     // Methods
     validateCheckIn,
@@ -517,8 +549,8 @@ export function useBookingModal(bookingRoom, isOpen, closeBooking) {
     formatDate,
     nextStep,
     prevStep,
-    bookAnother,
     resetForm,
-    fetchReservations
+    fetchReservations,
+    getReservation
   }
 }

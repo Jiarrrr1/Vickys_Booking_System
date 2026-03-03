@@ -20,10 +20,10 @@
         <div class="footer-col">
             <h4>Quick Links</h4>
             <ul class="footer-links">
-            <li><a href="#rooms">Our Rooms</a></li>
-            <li><a href="about.html">About Us</a></li>
-            <li><a href="#availability">Availability</a></li>
-            <li><a href="#policies">Terms &amp; Policies</a></li>
+            <li><a href="/rooms">Our Rooms</a></li>
+            <li><a href="/about">About Us</a></li>
+            <li><a href="/#availability">Availability</a></li>
+            <li><a href="/about#policies">Terms &amp; Policies</a></li>
             </ul>
         </div>
         </div>

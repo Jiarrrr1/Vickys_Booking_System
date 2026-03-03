@@ -1,8 +1,8 @@
+// vite.config.js
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { fileURLToPath, URL } from 'node:url'
 
-// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [vue()],
   resolve: {
@@ -11,11 +11,26 @@ export default defineConfig({
     }
   },
   server: {
-    port: 3001,
+    port: 3002,
     proxy: {
-      // Proxy API requests to your backend
-      '/api': {
-        target: 'http://localhost:5000', // Change this to your backend URL
+      // This should match the endpoints you're calling
+      '/getAllReservations': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        secure: false
+      },
+      '/getReservation': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        secure: false
+      },
+      '/updateStatus': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        secure: false
+      },
+      '/createReservation': {
+        target: 'http://localhost:3001',
         changeOrigin: true,
         secure: false
       }

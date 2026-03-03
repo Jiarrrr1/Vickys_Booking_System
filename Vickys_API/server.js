@@ -35,8 +35,7 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use('/api/v1', ReservationRoutes)
 app.use('/api/v1', FeedbackRoutes)
-app.use('/api/v1/admin', AdminRoutes)
-
+app.use('/api/v1/admin', AdminRoutes);
 
 
 // Test route

@@ -105,12 +105,12 @@
                   {{ checkOutError }}
                 </small>
               </div>
-              <div class="fgrp">
+              <!-- <div class="fgrp">
                 <label>Additional Notes
                   <span style="font-weight:400;letter-spacing:0;text-transform:none;color:#bbb;">(optional)</span>
                 </label>
                 <textarea v-model="form.notes" placeholder="Any additional information about your booking..."></textarea>
-              </div>
+              </div> -->
             </div>
 
             <!-- STEP 3 — Payment -->
@@ -240,6 +240,7 @@ const {
   totalPrice,
   computeDownpayment,
   computeRemainingBalance,
+  getReservation,
   validateCheckIn,
   validateCheckOut,
   preventTyping,

@@ -20,17 +20,22 @@
         <div class="modal-body">
           <div class="ph-bg-text" aria-hidden="true">FEEDBACK</div>
           
+          <!-- Error message if any -->
+          <div v-if="submitError" class="error-message">
+            {{ submitError }}
+          </div>
+          
           <form @submit.prevent="handleSubmit">
             <!-- Sender Name Field -->
             <div class="form-group">
-              <label for="senderName" class="form-label">
+              <label for="name" class="form-label">
                 <span class="label-icon">✦</span>
                 YOUR NAME
               </label>
               <input
                 type="text"
-                id="senderName"
-                v-model="formData.senderName"
+                id="name"
+                v-model="formData.name"
                 placeholder="e.g., Juan Dela Cruz"
                 required
                 class="form-input"
@@ -55,7 +60,7 @@
               <div class="input-ornament" aria-hidden="true"></div>
             </div>
 
-            <!-- Optional Rating Field (Adds a nice touch) -->
+            <!-- Rating Field -->
             <div class="form-group rating-group">
               <label class="form-label">
                 <span class="label-icon">✦</span>
@@ -66,7 +71,7 @@
                   type="button"
                   v-for="star in 5" 
                   :key="star"
-                  @click="formData.rating = star"
+                  @click="setRating(star)"
                   class="rating-star"
                   :class="{ active: star <= formData.rating }"
                   :aria-label="`Rate ${star} out of 5 stars`"
@@ -76,12 +81,13 @@
               </div>
             </div>
 
-            <!-- Form actions with resort-style buttons -->
+            <!-- Form actions -->
             <div class="form-actions">
               <button 
                 type="button" 
                 @click="closeModal" 
                 class="btn-secondary"
+                :disabled="isSubmitting"
               >
                 Cancel
               </button>
@@ -108,9 +114,9 @@
     </div>
   </Teleport>
 </template>
-
 <script setup>
 import { ref, reactive, watch } from 'vue'
+import { api } from '../services/api'
 
 const props = defineProps({
   isOpen: {
@@ -119,11 +125,12 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['close', 'submit'])
+const emit = defineEmits(['close', 'submit-success'])
 
 const isSubmitting = ref(false)
+const submitError = ref('')
 const formData = reactive({
-  senderName: '',
+  name: '',  // Changed from senderName to match backend
   message: '',
   rating: 0
 })
@@ -132,6 +139,8 @@ const formData = reactive({
 watch(() => props.isOpen, (newValue) => {
   if (newValue) {
     document.body.style.overflow = 'hidden'
+    // Reset error when opening
+    submitError.value = ''
   } else {
     document.body.style.overflow = 'auto'
     resetForm()
@@ -147,34 +156,75 @@ const handleOverlayClick = () => {
 }
 
 const resetForm = () => {
-  formData.senderName = ''
+  formData.name = ''
   formData.message = ''
   formData.rating = 0
+  submitError.value = ''
 }
 
 const handleSubmit = async () => {
+  // Validate form
+  if (!formData.name.trim()) {
+    alert('Please enter your name')
+    return
+  }
+  if (!formData.message.trim()) {
+    alert('Please enter your feedback message')
+    return
+  }
+  if (formData.rating === 0) {
+    alert('Please rate your experience')
+    return
+  }
+
   isSubmitting.value = true
+  submitError.value = ''
   
   try {
-    const feedbackData = {
-      name: formData.senderName,
+    console.log('📤 Submitting feedback:', formData)
+    
+    // Call the API
+    const response = await api.submitFeedback({
+      name: formData.name,
       message: formData.message,
       rating: formData.rating,
       timestamp: new Date().toISOString()
-    }
+    })
     
-    await emit('submit', feedbackData)
+    console.log('✅ Feedback submitted successfully:', response)
+    
+    // Emit success event to refresh the feedback list
+    emit('submit-success', response.data)
+    
+    // Close modal
     closeModal()
     
   } catch (error) {
-    console.error('Error submitting feedback:', error)
+    console.error('❌ Error submitting feedback:', error)
+    submitError.value = error.message || 'Failed to submit feedback. Please try again.'
   } finally {
     isSubmitting.value = false
   }
 }
+
+// Set rating function
+const setRating = (star) => {
+  formData.rating = star
+}
 </script>
 
 <style scoped>
+
+/* Add to your existing styles */
+.error-message {
+  background: rgba(220, 38, 38, 0.1);
+  border-left: 3px solid #dc2626;
+  color: #ef4444;
+  padding: 12px 16px;
+  margin-bottom: 24px;
+  font-size: 14px;
+  border-radius: 4px;
+}
 /* Modal Overlay */
 .feedback-overlay {
   position: fixed;
