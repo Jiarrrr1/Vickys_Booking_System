@@ -102,6 +102,11 @@ export const api = {
       body: JSON.stringify(data),
     });
   },
+  
+  getFeedback: () => {
+    console.log('📋 Fetching approved feedback...');
+    return apiRequest('/getApprovedFeedback');
+  },
 };
 
 // Auto-test connection when service loads
