@@ -101,6 +101,7 @@
                 <th style="text-align: center;">Status</th>
                 <th style="text-align: center;">Display</th>
                 <th>Created At</th>
+                <th style="text-align: center;">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -132,6 +133,19 @@
                   </label>
                 </td>
                 <td><strong>{{ formatDate(feedback.createdAt) }}</strong></td>
+                <td style="text-align: center;">
+                  <button 
+                    class="delete-btn" 
+                    @click="deleteFeedback(feedback)"
+                    title="Delete Feedback"
+                  >
+                    <svg viewBox="0 0 24 24" width="16" height="16">
+                      <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                      <line x1="10" y1="11" x2="10" y2="17"/>
+                      <line x1="14" y1="11" x2="14" y2="17"/>
+                    </svg>
+                  </button>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -174,6 +188,19 @@
         </div>
       </div>
     </section>
+
+    <!-- Confirmation Modal -->
+    <ConfirmationModal
+      :show="showConfirmModal"
+      :title="`Delete Feedback from ${feedbackToDelete?.from || 'Guest'}?`"
+      :message="`Are you sure you want to delete this feedback?\n\nThis action cannot be undone.`"
+      confirm-text="Delete"
+      cancel-text="Cancel"
+      type="danger"
+      @confirm="confirmDelete"
+      @cancel="cancelDelete"
+      @close="showConfirmModal = false"
+    />
   </div>
 </template>
 
@@ -181,6 +208,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useFeedbacksService } from '@/services/feedbackService'
 import StatCard from '@/components/StatCard.vue'
+import ConfirmationModal from '@/modals/confirmationModal.vue'
 
 const feedbacksService = useFeedbacksService()
 
@@ -188,6 +216,10 @@ const feedbacksService = useFeedbacksService()
 const searchQuery = ref('')
 const currentPage = ref(1)
 const itemsPerPage = 10
+
+// Confirmation modal state
+const showConfirmModal = ref(false)
+const feedbackToDelete = ref(null)
 
 // Computed properties from service
 const {
@@ -261,6 +293,37 @@ const toggleDisplay = async (feedback) => {
   } else {
     console.error('❌ Failed to toggle display:', result.error)
   }
+}
+
+const deleteFeedback = (feedback) => {
+  // Store the feedback to delete and show modal
+  feedbackToDelete.value = feedback
+  showConfirmModal.value = true
+}
+
+const confirmDelete = async () => {
+  if (!feedbackToDelete.value) return
+  
+  const feedback = feedbackToDelete.value
+  console.log(`Deleting feedback #${feedback.id}`)
+  
+  const result = await feedbacksService.deleteFeedback(feedback.id)
+  
+  if (result.success) {
+    console.log(`✅ Feedback #${feedback.id} deleted successfully`)
+    // Refresh the list
+    await fetchFeedbacks()
+  } else {
+    console.error('❌ Failed to delete feedback:', result.error)
+  }
+  
+  // Clear the feedback to delete
+  feedbackToDelete.value = null
+}
+
+const cancelDelete = () => {
+  // Just clear the feedback to delete
+  feedbackToDelete.value = null
 }
 
 const retryFetch = () => {
@@ -404,6 +467,31 @@ input:checked + .toggle-slider:before {
 
 .toggle-slider:hover {
   opacity: 0.9;
+}
+
+/* Delete Button */
+.delete-btn {
+  background: #dc3545;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all var(--tr);
+}
+
+.delete-btn:hover {
+  background: #c82333;
+  transform: translateY(-1px);
+}
+
+.delete-btn svg {
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
 }
 
 /* Pagination */
