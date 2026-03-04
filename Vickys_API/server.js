@@ -1,5 +1,4 @@
 const express = require('express');
-const mongoose = require('mongoose');
 const cors = require('cors'); // Make sure you have this line
 const helmet = require('helmet');
 const morgan = require('morgan');
@@ -13,6 +12,7 @@ require('dotenv').config();
 const ReservationRoutes = require('./routes/reservationRoutes')
 const FeedbackRoutes = require('./routes/feedbackRoutes')
 const AdminRoutes = require('./routes/adminRoutes')
+const PaymentRoutes = require('./routes/paymentRoutes')
 
 // Middleware
 
@@ -36,6 +36,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api/v1', ReservationRoutes)
 app.use('/api/v1', FeedbackRoutes)
 app.use('/api/v1/admin', AdminRoutes);
+app.use('/api/v1/admin', PaymentRoutes);
 
 
 // Test route

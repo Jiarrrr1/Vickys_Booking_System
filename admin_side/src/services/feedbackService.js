@@ -1,125 +1,246 @@
-// src/services/feedbacksService.js
 import { reactive, computed } from 'vue'
 import axios from 'axios'
 
-const apiClient = axios.create({
-  baseURL: '/api', // Use proxy
-  headers: { 'Content-Type': 'application/json' }
-})
-
-// Add auth token
-apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem('adminToken')
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
-  }
-  return config
-})
+// Adjust this to match your backend URL
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1'
 
 const state = reactive({
   feedbacks: [],
   isLoading: false,
   error: null,
-  searchQuery: ''
+  searchQuery: '',
 })
 
-// Transform backend data to frontend format
-const transformFeedback = (backendFeedback) => ({
-  id: backendFeedback.feedBackId,
-  guest: backendFeedback.from,
-  rating: backendFeedback.rate,
-  comment: backendFeedback.comment,
-  status: backendFeedback.status,
-showOnClient: backendFeedback.isDisplay,
-  date: backendFeedback.createdAt,
-  original: backendFeedback
-})
+export function useFeedbacksService() {
+  // Computed: Filtered feedbacks based on search
+  const filteredFeedbacks = computed(() => {
+    if (!state.searchQuery) {
+      return state.feedbacks
+    }
 
-// Computed properties
-const filteredFeedbacks = computed(() => {
-  if (!state.searchQuery) return state.feedbacks
+    const query = state.searchQuery.toLowerCase()
+    return state.feedbacks.filter(feedback => {
+      const guestName = (feedback.from || '').toLowerCase()
+      const comment = (feedback.comment || '').toLowerCase()
+      const feedbackId = String(feedback.id || '').toLowerCase()
+      
+      return (
+        guestName.includes(query) ||
+        comment.includes(query) ||
+        feedbackId.includes(query)
+      )
+    })
+  })
 
-  const query = state.searchQuery.toLowerCase()
-  return state.feedbacks.filter(fb => 
-    fb.guest?.toLowerCase().includes(query) ||
-    fb.comment?.toLowerCase().includes(query)
-  )
-})
+  // Computed: Total feedbacks
+  const totalFeedbacks = computed(() => state.feedbacks.length)
 
-const approvedCount = computed(() => 
-  state.feedbacks.filter(fb => fb.showOnClient).length
-)
+  // Computed: Average rating
+  const averageRating = computed(() => {
+    if (state.feedbacks.length === 0) return '0.0'
+    const sum = state.feedbacks.reduce((acc, f) => acc + (f.rate || 0), 0)
+    return (sum / state.feedbacks.length).toFixed(1)
+  })
 
-const pendingCount = computed(() => 
-  state.feedbacks.filter(fb => !fb.showOnClient).length
-)
+  // Computed: Positive count (4-5 stars)
+  const positiveCount = computed(() => {
+    return state.feedbacks.filter(f => f.rate >= 4).length
+  })
 
-const averageRating = computed(() => {
-  if (state.feedbacks.length === 0) return 0
-  const sum = state.feedbacks.reduce((acc, fb) => acc + fb.rating, 0)
-  return (sum / state.feedbacks.length).toFixed(1)
-})
+  // Computed: Neutral count (3 stars)
+  const neutralCount = computed(() => {
+    return state.feedbacks.filter(f => f.rate === 3).length
+  })
 
-export const useFeedbacksService = () => {
+  // Computed: Negative count (1-2 stars)
+  const negativeCount = computed(() => {
+    return state.feedbacks.filter(f => f.rate <= 2).length
+  })
+
+  // Computed: Displayed count
+  const displayedCount = computed(() => {
+    return state.feedbacks.filter(f => f.isDisplay === true).length
+  })
+
+  // Computed: Hidden count
+  const hiddenCount = computed(() => {
+    return state.feedbacks.filter(f => f.isDisplay === false).length
+  })
+
+  // Fetch all feedbacks (admin)
   const fetchFeedbacks = async () => {
     state.isLoading = true
     state.error = null
 
     try {
-      const response = await apiClient.get('/admin/getAllFeedback')
-      console.log('Feedbacks response:', response.data)
+      console.log('📡 Fetching feedbacks from:', `${API_BASE_URL}/admin/getAllFeedback`)
+      const response = await axios.get(`${API_BASE_URL}/admin/getAllFeedback`)
       
-      const feedbacksData = response.data.data || response.data
-      state.feedbacks = Array.isArray(feedbacksData) 
-        ? feedbacksData.map(transformFeedback)
-        : []
+      console.log('📥 Response received:', response.data)
       
-      return true
+      if (response.data && response.data.success) {
+        // Map backend data to frontend format (feedBackId -> id)
+        state.feedbacks = (response.data.data || []).map(feedback => ({
+          ...feedback,
+          id: feedback.feedBackId || feedback._id,
+          from: feedback.from,
+          rate: feedback.rate,
+          comment: feedback.comment,
+          status: feedback.status,
+          isDisplay: feedback.isDisplay,
+          createdAt: feedback.createdAt
+        }))
+        console.log('✅ Feedbacks loaded:', state.feedbacks.length)
+        return { success: true, data: state.feedbacks }
+      } else {
+        throw new Error(response.data?.message || 'Failed to fetch feedbacks')
+      }
     } catch (error) {
-      state.error = error.response?.data?.message || 'Failed to fetch feedbacks'
-      console.error('❌ Fetch feedbacks error:', error)
-      return false
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to fetch feedbacks'
+      state.error = errorMessage
+      console.error('❌ Error fetching feedbacks:', error)
+      return { success: false, error: errorMessage }
     } finally {
       state.isLoading = false
     }
   }
 
-  const toggleFeedbackStatus = async (id, currentStatus) => {
+  // Fetch single feedback by ID
+  const fetchFeedbackById = async (id) => {
     try {
-      const newStatus = !currentStatus
-     const response = await apiClient.patch(`/admin/updateFeedbackStatus/${id}`, { 
-  isDisplay: newStatus 
-})
+      const response = await axios.get(`${API_BASE_URL}/admin/getFeedback/${id}`)
       
-      // Update local state
-      const index = state.feedbacks.findIndex(fb => fb.id === id)
-      if (index !== -1) {
-        state.feedbacks[index].showOnClient = newStatus
+      if (response.data && response.data.success) {
+        return { success: true, data: response.data.data }
+      } else {
+        throw new Error(response.data?.message || 'Failed to fetch feedback')
       }
-      
-      return { success: true, data: response.data }
     } catch (error) {
-      console.error('❌ Toggle status error:', error)
-      return { success: false, error: error.message }
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to fetch feedback'
+      console.error('Error fetching feedback:', error)
+      return { success: false, error: errorMessage }
     }
   }
 
-  const deleteFeedback = async (id) => {
+  // Toggle feedback display status
+  const toggleFeedbackStatus = async (feedbackId, newStatus) => {
+    const url = `${API_BASE_URL}/admin/updateFeedbackStatus/${feedbackId}`
+    
+    console.group('🔄 Toggle Feedback Display')
+    console.log('Feedback ID:', feedbackId)
+    console.log('New Status:', newStatus)
+    console.log('API URL:', url)
+    console.log('Request Body:', { isDisplay: newStatus })
+    
     try {
-      await apiClient.delete(`/admin/deleteFeedback/${id}`)
+      const response = await axios.patch(url, { isDisplay: newStatus })
       
-      // Remove from local state
-      state.feedbacks = state.feedbacks.filter(fb => fb.id !== id)
-      
-      return { success: true }
+      console.log('📥 Response Status:', response.status)
+      console.log('📥 Response Data:', response.data)
+
+      if (response.data && response.data.success) {
+        // Update local state using id (which is mapped from feedBackId)
+        const feedback = state.feedbacks.find(f => f.id === feedbackId)
+        console.log('🔍 Found feedback in state:', feedback ? 'YES' : 'NO')
+        
+        if (feedback) {
+          const oldValue = feedback.isDisplay
+          feedback.isDisplay = newStatus
+          console.log(`✅ Updated: ${oldValue} → ${newStatus}`)
+        } else {
+          console.warn('⚠️ Feedback not found in state! ID:', feedbackId)
+          console.log('Available IDs:', state.feedbacks.map(f => f.id))
+        }
+        
+        console.groupEnd()
+        return { success: true, data: response.data.data }
+      } else {
+        throw new Error(response.data?.message || 'Failed to update status')
+      }
     } catch (error) {
-      console.error('❌ Delete feedback error:', error)
-      return { success: false, error: error.message }
+      console.error('❌ Request failed!')
+      console.error('Error:', error.message)
+      if (error.response) {
+        console.error('Response Status:', error.response.status)
+        console.error('Response Data:', error.response.data)
+      }
+      console.groupEnd()
+      
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to update status'
+      return { success: false, error: errorMessage }
     }
   }
 
+  // Delete feedback
+  const deleteFeedback = async (feedbackId) => {
+    try {
+      const response = await axios.delete(
+        `${API_BASE_URL}/admin/deleteFeedback/${feedbackId}`
+      )
+
+      if (response.data && response.data.success) {
+        // Remove from local state using id (mapped from feedBackId)
+        const index = state.feedbacks.findIndex(f => f.id === feedbackId)
+        if (index !== -1) {
+          state.feedbacks.splice(index, 1)
+        }
+        
+        return { success: true }
+      } else {
+        throw new Error(response.data?.message || 'Failed to delete feedback')
+      }
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to delete feedback'
+      console.error('Error deleting feedback:', error)
+      return { success: false, error: errorMessage }
+    }
+  }
+
+  // Create feedback (public - for frontend use)
+  const createFeedback = async (feedbackData) => {
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/feedbacks/createFeedback`,
+        feedbackData
+      )
+
+      if (response.data && response.data.success) {
+        return { success: true, data: response.data.data }
+      } else {
+        throw new Error(response.data?.message || 'Failed to create feedback')
+      }
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to create feedback'
+      console.error('Error creating feedback:', error)
+      return { success: false, error: errorMessage }
+    }
+  }
+
+  // Get approved feedbacks (for public display)
+  const fetchApprovedFeedbacks = async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/feedbacks/getApprovedFeedback`)
+      
+      if (response.data && response.data.success) {
+        return { success: true, data: response.data.data || [] }
+      } else {
+        throw new Error(response.data?.message || 'Failed to fetch approved feedbacks')
+      }
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to fetch approved feedbacks'
+      console.error('Error fetching approved feedbacks:', error)
+      return { success: false, error: errorMessage }
+    }
+  }
+
+  // Set search query
   const setSearchQuery = (query) => {
     state.searchQuery = query
+  }
+
+  // Clear error
+  const clearError = () => {
+    state.error = null
   }
 
   return {
@@ -127,16 +248,25 @@ export const useFeedbacksService = () => {
     feedbacks: computed(() => state.feedbacks),
     isLoading: computed(() => state.isLoading),
     error: computed(() => state.error),
-    searchQuery: computed(() => state.searchQuery),
+    
+    // Computed
     filteredFeedbacks,
-    approvedCount,
-    pendingCount,
+    totalFeedbacks,
     averageRating,
+    positiveCount,
+    neutralCount,
+    negativeCount,
+    displayedCount,
+    hiddenCount,
     
     // Methods
     fetchFeedbacks,
+    fetchFeedbackById,
     toggleFeedbackStatus,
     deleteFeedback,
-    setSearchQuery
+    createFeedback,
+    fetchApprovedFeedbacks,
+    setSearchQuery,
+    clearError,
   }
 }

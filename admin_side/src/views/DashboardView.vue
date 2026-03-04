@@ -33,15 +33,6 @@
             </svg>
           </template>
         </StatCard>
-
-        <!-- Walk-Ins -->
-        <StatCard :value="walkIns" label="Walk-Ins" color-class="cg" :badge="`+${walkIns}`" class="fu4">
-          <template #icon>
-            <svg viewBox="0 0 24 24" width="24" height="24">
-              <path d="M3 12h18M3 6h18M3 18h18" stroke="currentColor" fill="none" />
-            </svg>
-          </template>
-        </StatCard>
       </div>
 
       <!-- Recent Bookings Table -->

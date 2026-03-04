@@ -21,13 +21,28 @@ class FeedbackController {
     return res.status(200).json(response);
   });
 
-  // Update feedback display status
-  updateFeedbackStatus = tryAndCatch(async (req, res) => {
+ // Enhanced updateFeedbackStatus controller method
+
+updateFeedbackStatus = tryAndCatch(async (req, res) => {
+    console.log('🎯 CONTROLLER: updateFeedbackStatus called');
+    console.log('   Params:', req.params);
+    console.log('   Body:', req.body);
+    
     const { id } = req.params;
     const { isDisplay } = req.body;
+    
+    console.log('   Extracted id:', id);
+    console.log('   Extracted isDisplay:', isDisplay);
+    
     const response = await FeedbackServices.updateFeedbackStatus(id, isDisplay);
+    
+    console.log('✅ CONTROLLER: Service returned:');
+    console.log('   success:', response.success);
+     console.log('   message:', response.message);
+    console.log('   data.isDisplay:', response.data?.isDisplay);
+    
     return res.status(200).json(response);
-  });
+});
 
   // Delete feedback
   deleteFeedback = tryAndCatch(async (req, res) => {

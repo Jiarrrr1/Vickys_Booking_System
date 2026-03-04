@@ -94,7 +94,7 @@
         <div v-if="booking.notes" class="request-section">
           <h3>Special Request</h3>
           <div class="request-box">
-            {{ booking.notes }}
+            {{ booking.request }}
           </div>
         </div>
 

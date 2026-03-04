@@ -60,24 +60,65 @@ class FeedbackManagement {
     }
 
     // Update feedback display status (show/hide on client)
-    async updateFeedbackStatus(id, isDisplay) {
-        try {
-            const updatedFeedback = await Feedback.findOneAndUpdate(
-                { feedBackId: id },
-                { isDisplay: isDisplay },
-                { new: true, runValidators: true }
-            );
-
-            return {
-                success: true,
-                message: `Feedback ${isDisplay ? 'shown' : 'hidden'} on client site`,
-                data: updatedFeedback
-            };
-        } catch (error) {
-            console.error('Error updating feedback status:', error);
-            throw error;
+   async updateFeedbackStatus(id, isDisplay) {
+    try {
+        console.log('==========================================');
+        console.log('📝 SERVICE: updateFeedbackStatus called');
+        console.log('   ID received:', id);
+        console.log('   ID type:', typeof id);
+        console.log('   isDisplay received:', isDisplay);
+        console.log('   isDisplay type:', typeof isDisplay);
+        
+        // Step 1: Check if feedback exists BEFORE update
+        const beforeUpdate = await Feedback.findOne({ feedBackId: id });
+        
+        if (!beforeUpdate) {
+            console.log('❌ Feedback NOT FOUND with feedBackId:', id);
+            console.log('   Searching in database...');
+            
+            // Debug: Show all feedBackIds in database
+            const allFeedbacks = await Feedback.find({}, { feedBackId: 1 }).limit(10);
+            console.log('   First 10 feedBackIds in DB:', allFeedbacks.map(f => f.feedBackId));
+            
+            throw new Error(`Feedback with feedBackId ${id} not found`);
         }
+        
+        console.log('✅ Found feedback BEFORE update:');
+        console.log('   feedBackId:', beforeUpdate.feedBackId);
+        console.log('   Current isDisplay:', beforeUpdate.isDisplay);
+        console.log('   from:', beforeUpdate.from);
+        
+        // Step 2: Perform the update
+        console.log('🔄 Performing update...');
+        const updatedFeedback = await Feedback.findOneAndUpdate(
+            { feedBackId: id },
+            { isDisplay: isDisplay },
+            { new: true, runValidators: true }
+        );
+
+        if (!updatedFeedback) {
+            console.log('❌ Update returned null!');
+            throw new Error('Update failed - document not found');
+        }
+
+        console.log('✅ Update completed:');
+        console.log('   BEFORE isDisplay:', beforeUpdate.isDisplay);
+        console.log('   AFTER isDisplay:', updatedFeedback.isDisplay);
+        console.log('   Changed?', beforeUpdate.isDisplay !== updatedFeedback.isDisplay);
+        console.log('==========================================');
+
+        return {
+            success: true,
+            message: `Feedback ${isDisplay ? 'shown' : 'hidden'} on client site`,
+            data: updatedFeedback
+        };
+    } catch (error) {
+        console.error('❌ SERVICE ERROR:', error.message);
+        console.error('   Stack:', error.stack);
+        console.log('==========================================');
+        throw error;
     }
+}
 
     // Delete feedback
     async deleteFeedback(id) {
