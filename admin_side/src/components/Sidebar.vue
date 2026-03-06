@@ -119,6 +119,15 @@
       </router-link> -->
     </nav>
 
+
+    <!-- Export Modal -->
+    <ExportOptionsModal
+      :show="showExportModal"
+      :counts="exportCounts"
+      @close="showExportModal = false"
+      @export="handleExport"
+    />
+
     <!-- Logged-in User Chip -->
 <div class="sfooter">
   <div class="uchip">
@@ -136,18 +145,30 @@
       </svg>
     </button>
   </div>
+
+   <button class="export-sidebar-btn" @click="openExportModal">
+        <svg viewBox="0 0 24 24" width="20" height="20">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="7 10 12 15 17 10" />
+          <line x1="12" y1="15" x2="12" y2="3" />
+        </svg>
+        <span>Export Data</span>
+      </button>
 </div>
   </aside>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import authService from '@/services/auth'
 import bookingsService from '@/services/bookingService'
 import { useFeedbacksService } from '@/services/feedbackService'
 import paymentsService from '@/services/paymentsService'
 import { useDeletedItemsService } from '@/services/deletedItemsService'
+
+import ExportOptionsModal from '@/modals/exportOptionsModal.vue'
+import exportService from '@/services/exportService'
 
 const route = useRoute()
 const router = useRouter()
@@ -187,9 +208,161 @@ const handleLogout = async () => {
   await authService.logout()
   router.push('/admin/login')
 }
+
+
+const showExportModal = ref(false)
+const exportCounts = ref({
+  bookings: 0,
+  payments: 0,
+  feedbacks: 0,
+  deleted: 0
+})
+
+// Load counts
+const loadCounts = async () => {
+  try {
+    await Promise.all([
+      bookingsService.fetchBookings(),
+      paymentsService.fetchPayments(),
+      feedbacksService.fetchFeedbacks(),
+      deletedItemsService.fetchDeletedItems()
+    ])
+    
+    exportCounts.value = {
+      bookings: bookingsService.bookings?.length || 0,
+      payments: paymentsService.payments?.length || 0,
+      feedbacks: feedbacksService.feedbacks?.length || 0,
+      deleted: deletedItemsService.deletedItems?.length || 0
+    }
+  } catch (error) {
+    console.error('Error loading counts:', error)
+  }
+}
+
+const openExportModal = () => {
+  loadCounts()
+  showExportModal.value = true
+}
+
+// Handle export
+const handleExport = async (options) => {
+  console.log('Export options:', options)
+  
+  try {
+    const exports = {}
+    const filename = `export_${new Date().toISOString().split('T')[0]}`
+    
+    // Fetch data if not already loaded
+    await Promise.all([
+      bookingsService.fetchBookings(),
+      paymentsService.fetchPayments(),
+      feedbacksService.fetchFeedbacks(),
+      deletedItemsService.fetchDeletedItems()
+    ])
+    
+    // Prepare data based on selected types
+    if (options.types.includes('bookings')) {
+      exports.Bookings = exportService.formatBookings(bookingsService.bookings)
+    }
+    
+    if (options.types.includes('payments')) {
+      exports.Payments = exportService.formatPayments(paymentsService.payments)
+    }
+    
+    if (options.types.includes('feedbacks')) {
+      exports.Feedbacks = exportService.formatFeedbacks(feedbacksService.feedbacks)
+    }
+    
+    if (options.types.includes('deleted')) {
+      exports['Deleted Items'] = exportService.formatDeletedItems(deletedItemsService.deletedItems)
+    }
+    
+    if (options.types.includes('revenue')) {
+      // Filter payments by date if specified
+      let payments = paymentsService.payments
+      if (options.dateRange) {
+        const from = new Date(options.dateRange.from)
+        const to = new Date(options.dateRange.to)
+        payments = payments.filter(p => {
+          const date = new Date(p.date || p.paymentDate || p.createdAt)
+          return date >= from && date <= to
+        })
+      }
+      
+      const revenue = exportService.formatRevenueReport(
+        payments,
+        options.dateRange?.from,
+        options.dateRange?.to
+      )
+      
+      exports['Revenue Summary'] = revenue.summary
+      exports['Revenue by Method'] = revenue.byMethod
+      exports['Revenue by Month'] = revenue.byMonth
+    }
+    
+    // Export based on format
+    if (options.format === 'excel') {
+      exportService.toMultiSheetExcel(exports, filename)
+    } else if (options.format === 'pdf') {
+      // For PDF, create separate PDFs or combine into one
+      for (const [name, data] of Object.entries(exports)) {
+        await exportService.toPDF(data, `${filename}_${name}`, `${name} Report`)
+      }
+    } else if (options.format === 'both') {
+      exportService.toMultiSheetExcel(exports, filename)
+      for (const [name, data] of Object.entries(exports)) {
+        await exportService.toPDF(data, `${filename}_${name}`, `${name} Report`)
+      }
+    }
+    
+    showExportModal.value = false
+  } catch (error) {
+    console.error('Export failed:', error)
+    alert('Export failed: ' + error.message)
+  }
+}
+
+// Load counts on mount
+onMounted(() => {
+  loadCounts()
+})
+
 </script>
 
 <style scoped>
+
+.sidebar-footer {
+  margin-top: auto;
+  padding: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.export-sidebar-btn {
+  width: 100%;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 14px;
+}
+
+.export-sidebar-btn:hover {
+  background: var(--gold);
+  color: #000;
+  border-color: var(--gold);
+}
+
+.export-sidebar-btn svg {
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+}
 
 /* Active route styling */
 .sitem.active {

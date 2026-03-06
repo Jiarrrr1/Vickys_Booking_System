@@ -84,7 +84,8 @@ class ReservationServices {
         console.log('👤 Admin-side reservation - no automatic payment record created');
       }
 
-      // Send email (non-blocking)
+      if (payload.status === 'Pending') {
+        // Send email (non-blocking)
       setTimeout(async () => {
         try {
           await emailSender.sendReservationEmail(payload.email, newReservation);
@@ -93,6 +94,7 @@ class ReservationServices {
           console.error("Email sending failed:", emailError.message);
         }
       }, 100);
+      } 
 
       return {
         success: true,
@@ -143,6 +145,8 @@ class ReservationServices {
         { status: payload },
         { new: true, runValidators: true }
       );
+
+      if (payload === 'Confirmed')
 
       if (updatedReservation) {
         await updatedReservation.save();
