@@ -6,7 +6,6 @@ const PaymentServices = require('./paymentServices');
 const { checkAdmin } = require('../middleware/authMiddleware');
 
 class ReservationServices {
-  // In your controller/service file
   async createReservation(payload, req) {
     try {
       const newId = await generateId();
@@ -34,6 +33,9 @@ class ReservationServices {
 
       await newReservation.save();
       console.log(`✅ Reservation #${newId} created successfully`);
+      console.log(`   Total: ₱${payload.total}`);
+      console.log(`   Downpayment: ₱${payload.downpayment}`);
+      console.log(`   Remaining Balance: ₱${payload.remainingBalance}`);
 
       // Check if this is a client-side reservation (not admin)
       const isAdmin = await checkAdmin(req);
@@ -41,6 +43,7 @@ class ReservationServices {
       if (!isAdmin) {
         console.log('👤 Client-side reservation - creating payment record...');
         
+        // ✅ FIXED: Calculate amount to pay
         function calculateAmountToPay() {
           if (payload.paymentType === 'Downpayment') {
             return payload.downpayment;
@@ -63,37 +66,45 @@ class ReservationServices {
           return '';
         }
 
+        const amountPaid = calculateAmountToPay();
+        
+        // ✅ FIXED: Calculate the balance AFTER this payment
+        const balanceAfterPayment = payload.total - amountPaid;
+
         const paymentPayload = {
           guestName: newReservation.fullName,
           email: newReservation.email,
           phoneNumber: newReservation.phoneNumber,
           roomName: newReservation.roomName,
-          amount: calculateAmountToPay(),
+          amount: amountPaid,  // Amount being paid NOW
           paymentMethod: payload.paymentMethod === 'gcash' ? 'Gcash' : 'Cash',
           referenceNumber: payload.paymentMethod === 'gcash' ? payload.rfrncNumber : '',
           paymentType: payload.paymentType,
           notes: generateNotes(),
-          balance: newReservation.remainingBalance - calculateAmountToPay()
+          balance: balanceAfterPayment  // ✅ FIXED: Balance AFTER this payment
         };
 
-        console.log("💰 Payment payload:", paymentPayload);
+        console.log("💰 Payment payload:");
+        console.log(`   Amount Paid: ₱${amountPaid}`);
+        console.log(`   Balance After Payment: ₱${balanceAfterPayment}`);
 
         await PaymentServices.createPayment(paymentPayload, newReservation.reservationId);
         console.log('✅ Payment record created successfully');
       } else {
         console.log('👤 Admin-side reservation - no automatic payment record created');
+        console.log('   Admin should manually create payment records if needed');
       }
 
       if (payload.status === 'Pending') {
         // Send email (non-blocking)
-      setTimeout(async () => {
-        try {
-          await emailSender.sendReservationEmail(payload.email, newReservation);
-          console.log(`📧 Email sent for #${newReservation.reservationId}`);
-        } catch (emailError) {
-          console.error("Email sending failed:", emailError.message);
-        }
-      }, 100);
+        setTimeout(async () => {
+          try {
+            await emailSender.sendReservationEmail(payload.email, newReservation);
+            console.log(`📧 Email sent for #${newReservation.reservationId}`);
+          } catch (emailError) {
+            console.error("Email sending failed:", emailError.message);
+          }
+        }, 100);
       } 
 
       return {
@@ -109,11 +120,10 @@ class ReservationServices {
     }
   }
 
-  // ✅ UPDATED: Exclude deleted bookings
   async getAllReservations() {
     try {
       const response = await Reservation.find({ 
-        isDeleted: { $ne: true }  // ✅ Exclude soft-deleted
+        isDeleted: { $ne: true }
       }).sort({ createdAt: -1 });
       return response;
     } catch (error) {
@@ -126,7 +136,7 @@ class ReservationServices {
     try {
       const reservation = await Reservation.findOne({
         reservationId: id,
-        isDeleted: { $ne: true }  // ✅ Exclude deleted
+        isDeleted: { $ne: true }
       }).exec();
       return reservation;
     } catch (error) {
@@ -140,14 +150,13 @@ class ReservationServices {
       const updatedReservation = await Reservation.findOneAndUpdate(
         { 
           reservationId: id,
-          isDeleted: { $ne: true }  // ✅ Only update non-deleted
+          isDeleted: { $ne: true }
         },
         { status: payload },
         { new: true, runValidators: true }
       );
 
       if (payload === 'Confirmed'){
-        // Send email (non-blocking)
         setTimeout(async () => {
           try {
             await emailSender.sendConfirmationEmail(updatedReservation.email, updatedReservation);
@@ -175,7 +184,7 @@ class ReservationServices {
       const updatedReservation = await Reservation.findOneAndUpdate(
         { 
           reservationId: id,
-          isDeleted: { $ne: true }  // ✅ Only update non-deleted
+          isDeleted: { $ne: true }
         },
         { notes: payload },
         { new: true, runValidators: true }
@@ -193,7 +202,6 @@ class ReservationServices {
     }
   }
 
-  // Soft delete
   async deleteReservation(id, deletedBy = null) {
     try {
       console.log(`🗑️ Soft deleting booking: ${id}`);

@@ -85,7 +85,7 @@
             </div>
             <div class="info-item highlight-balance">
               <span class="info-label">Remaining Balance</span>
-              <span class="info-value balance-amount">₱{{ booking.remainingBalance?.toLocaleString() || '0' }}</span>
+              <span class="info-value balance-amount">₱{{ booking.remainingBalance?.toLocaleString()}}</span>
             </div>
           </div>
         </div>
@@ -253,12 +253,25 @@
       </div>
     </div>
   </div>
+
+  <!-- ✅ FIXED: Proper FeedbackModal Usage -->
+  <FeedbackModal
+    :show="isPaid"
+    type="success"
+    title="Payment Successful!"
+    message="Your payment has been processed successfully."
+    :details="paymentSuccessDetails"
+    button-text="OK"
+    @close="handlePaymentModalClose"
+    @confirm="handlePaymentModalClose"
+  />
 </template>
 
 <script setup>
 import { ref, watch, computed, reactive } from 'vue'
 import bookingsService from '@/services/bookingService'
 import { paymentsAPI } from '@/services/api'
+import FeedbackModal from './FeedbackModal.vue'
 
 const props = defineProps({
   show: Boolean,
@@ -285,12 +298,27 @@ const paymentErrors = reactive({
 })
 
 const isProcessingPayment = ref(false)
+const isPaid = ref(false)
 
 // Calculate new balance after payment
 const calculateNewBalance = computed(() => {
   if (!props.booking) return 0
   const currentBalance = props.booking.remainingBalance || 0
   return Math.max(0, currentBalance - (paymentForm.amount || 0))
+})
+
+// ✅ NEW: Computed property for payment success details
+const paymentSuccessDetails = computed(() => {
+  if (!isPaid.value || !props.booking) return null
+  
+  return {
+    'Payment ID': isPaid.value?.paymentId || 'N/A', // If you have payment ID
+    'Reservation ID': `#${props.booking.id}`,
+    'Guest Name': props.booking.guest,
+    'Amount': paymentForm.amount, // This will be picked up by 'Amount' check
+    'Payment Method': paymentForm.method,
+    'Payment Type': 'Balance Payment', // This will be picked up by 'Payment Type' check
+  }
 })
 
 // Validate payment form
@@ -383,6 +411,18 @@ const closeModal = () => {
   emit('close')
 }
 
+// ✅ NEW: Handle payment modal close
+const handlePaymentModalClose = () => {
+  isPaid.value = false
+  
+  // Optionally refresh the booking data
+  emit('payment-success', {
+    bookingId: props.booking?.id,
+    amount: paymentForm.amount,
+    newBalance: calculateNewBalance.value
+  })
+}
+
 // Validate payment amount
 const validatePaymentAmount = () => {
   if (!props.booking) {
@@ -430,12 +470,16 @@ const processPayment = async () => {
   isProcessingPayment.value = true
 
   try {
+    // ✅ FIXED: Calculate balance correctly
+    const newBalance = calculateNewBalance.value
+    
     const paymentData = {
       guestName: props.booking.guest,
       email: props.booking.email,
       phoneNumber: props.booking.phoneNumber,
       roomName: props.booking.room,
       amount: paymentForm.amount,
+      balance: newBalance,  // ✅ ADD: Send the new balance
       paymentMethod: paymentForm.method,
       referenceNumber: paymentForm.method === 'GCash' ? paymentForm.referenceNumber : '',
       paymentType: 'Balance Payment',
@@ -451,23 +495,17 @@ const processPayment = async () => {
       
       // Update local booking data
       if (props.booking) {
-        props.booking.remainingBalance = calculateNewBalance.value
+        props.booking.remainingBalance = newBalance
       }
       
-      // Emit success event
-      emit('payment-success', {
-        bookingId: props.booking.id,
-        amount: paymentForm.amount,
-        newBalance: calculateNewBalance.value
-      })
+      // ✅ FIXED: Proper assignment operator
+      isPaid.value = true
       
       // Reset payment form
-      paymentForm.amount = props.booking.remainingBalance || 0
+      paymentForm.amount = newBalance
       paymentForm.referenceNumber = ''
       paymentErrors.reference = ''
       
-      // Show success message
-      alert(`Payment of ₱${formatNumber(paymentForm.amount)} processed successfully!\nNew balance: ₱${formatNumber(calculateNewBalance.value)}`)
     } else {
       throw new Error(response.data?.message || 'Failed to process payment')
     }
@@ -883,6 +921,8 @@ const saveNotes = async () => {
 }
 
 .contact-section,
+.payment-section,
+.request-section,
 .status-update-section,
 .notes-section {
   margin-bottom: 24px;
@@ -891,6 +931,8 @@ const saveNotes = async () => {
 }
 
 .contact-section h3,
+.payment-section h3,
+.request-section h3,
 .status-update-section h3,
 .notes-section h3 {
   font-size: 16px;
@@ -899,10 +941,21 @@ const saveNotes = async () => {
   font-weight: 600;
 }
 
-.contact-grid {
+.contact-grid,
+.payment-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 16px;
+}
+
+.request-box {
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  border: 1px solid #e0e0e0;
+  color: #374151;
+  font-size: 14px;
+  line-height: 1.6;
 }
 
 .status-controls {

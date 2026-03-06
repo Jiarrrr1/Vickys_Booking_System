@@ -21,6 +21,7 @@ router.get('/getAdmin/:id', verifyAdminToken, AdminController.getAdminById);
 router.put('/updateAdmins/:id', verifyAdminToken, AdminController.updateAdmin);
 router.delete('/deleteAdmins/:id', verifyAdminToken, AdminController.deleteAdmin);
 
+router.post('/verify-password', verifyAdminToken, AdminController.verifyPassword);
 
 // In routes/adminRoutes.js
 

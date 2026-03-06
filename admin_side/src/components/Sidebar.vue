@@ -96,6 +96,14 @@
 
       </router-link>
 
+      <router-link to="/admin/admins" class="sitem" :class="{ active: currentRoute === 'AdminAdmins' }">
+        <svg viewBox="0 0 24 24">
+          <rect x="1" y="4" width="22" height="16" rx="2" />
+          <path d="M1 10h22" />
+        </svg>
+        Admins
+      </router-link> 
+
       <!-- <div class="sgroup">Settings</div> -->
 
       <!-- Profile -->

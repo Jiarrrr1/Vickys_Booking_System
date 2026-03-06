@@ -1,17 +1,26 @@
 const Admin = require("../models/Admin.Model");
 const generateId = require("../utils/generateId");
-const bcrypt = require('bcryptjs'); // You'll need to install this
-const jwt = require('jsonwebtoken'); // You'll need to install this
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 
 class AdminManagement {
+  // ==========================================
+  // CREATE ADMIN
+  // ==========================================
   async createAdmin(payload) {
     try {
-      // Check if admin already exists
-      const existingAdmin = await Admin.findOne({ email: payload.email });
+      // Check if admin already exists by email or username
+      const existingAdmin = await Admin.findOne({ 
+        $or: [
+          { email: payload.email.toLowerCase() },
+          { userName: payload.userName.toLowerCase() }
+        ]
+      });
+      
       if (existingAdmin) {
         return {
           success: false,
-          message: "Admin with this email already exists",
+          message: "Admin with this email or username already exists",
         };
       }
 
@@ -24,8 +33,11 @@ class AdminManagement {
       const newAdmin = new Admin({
         userId: generatedId,
         fullName: payload.fullName,
-        email: payload.email,
-        password: hashedPassword, // Store hashed password
+        userName: payload.userName.toLowerCase(),
+        status: payload.status || 'Active', // Use lowercase to match enum
+        lastLogin: null,
+        email: payload.email.toLowerCase(),
+        password: hashedPassword,
       });
 
       await newAdmin.save();
@@ -45,12 +57,15 @@ class AdminManagement {
     }
   }
 
+  // ==========================================
+  // LOGIN
+  // ==========================================
   async login(payload) {
     try {
       const { email, password } = payload;
 
       // Find admin by email
-      const admin = await Admin.findOne({ email }).exec();
+      const admin = await Admin.findOne({ email:email }).exec();
 
       if (!admin) {
         return {
@@ -69,12 +84,18 @@ class AdminManagement {
         };
       }
 
+      // ✅ Update lastLogin and status - Use lowercase 'active' to match enum
+      admin.lastLogin = new Date();
+      admin.status = 'Active';  // MUST be lowercase to match enum
+      await admin.save();
+
       // Generate JWT token
       const token = jwt.sign(
         { 
           id: admin._id, 
           userId: admin.userId,
           email: admin.email,
+          userName: admin.userName,
           role: 'admin' 
         },
         process.env.JWT_SECRET || 'your-secret-key',
@@ -99,6 +120,9 @@ class AdminManagement {
     }
   }
 
+  // ==========================================
+  // VERIFY TOKEN
+  // ==========================================
   async verifyToken(token) {
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
@@ -124,6 +148,32 @@ class AdminManagement {
     }
   }
 
+  // ==========================================
+  // VERIFY PASSWORD (for sensitive operations)
+  // ==========================================
+ async verifyPassword(userId, password) {
+  try {
+    console.log('🔐 Verifying password for userId:', userId);
+    
+    // Find by userId field (not _id)
+    const admin = await Admin.findOne({ _id: userId });
+    console.log('   Admin found:', admin ? 'Yes' : 'No');
+    
+    if (!admin) {
+      return false;
+    }
+    // const isValid = true
+    const isValid = await bcrypt.compare(password, admin.password);
+    console.log('   Password valid:', isValid);
+    return isValid;
+  } catch (error) {
+    console.error("Error verifying password:", error);
+    return false;
+  }
+}
+  // ==========================================
+  // CHANGE PASSWORD
+  // ==========================================
   async changePassword(adminId, oldPassword, newPassword) {
     try {
       const admin = await Admin.findById(adminId);
@@ -162,12 +212,29 @@ class AdminManagement {
     }
   }
 
+  // ==========================================
+  // GET ALL ADMINS
+  // ==========================================
   async getAllAdmins() {
     try {
-      const admins = await Admin.find().select('-password');
+      const admins = await Admin.find().select('-password').sort({ createdAt: -1 });
+      
+      // Transform to match frontend expected format
+      const formattedAdmins = admins.map(admin => ({
+        id: admin._id,
+        userId: admin.userId,
+        fullName: admin.fullName,
+        username: admin.userName,
+        email: admin.email,
+        status: admin.status,
+        role: admin.status === 'active' ? 'admin' : 'inactive',
+        createdAt: admin.createdAt,
+        lastLogin: admin.lastLogin
+      }));
+
       return {
         success: true,
-        data: admins,
+        data: formattedAdmins,
       };
     } catch (error) {
       console.error("Error fetching admins:", error);
@@ -175,9 +242,12 @@ class AdminManagement {
     }
   }
 
+  // ==========================================
+  // GET ADMIN BY ID
+  // ==========================================
   async getAdminById(id) {
     try {
-      const admin = await Admin.findById(id);
+      const admin = await Admin.findById(id).select('-password');
       
       if (!admin) {
         return {
@@ -196,71 +266,79 @@ class AdminManagement {
     }
   }
 
-  async updateAdmin(id, payload) {
-    try {
-      const admin = await Admin.findById(id);
+  // ==========================================
+  // UPDATE ADMIN
+  // ==========================================
+ async updateAdmin(userId, payload) {
+  try {
+    // Find by userId field (not _id)
+    const admin = await Admin.findOne({ userId: userId });
+    
+    if (!admin) {
+      return {
+        success: false,
+        message: "Admin not found",
+      };
+    }
+
+    // Check if email is already taken by another admin
+    if (payload.email && payload.email !== admin.email) {
+      const existingAdmin = await Admin.findOne({ 
+        email: payload.email.toLowerCase(),
+        userId: { $ne: userId } // Use userId instead of _id
+      });
       
-      if (!admin) {
+      if (existingAdmin) {
         return {
           success: false,
-          message: "Admin not found",
+          message: "Email already in use",
         };
       }
-
-      // Update fields
-      if (payload.fullName) admin.fullName = payload.fullName;
-      if (payload.email) {
-        // Check if email is already taken by another admin
-        const existingAdmin = await Admin.findOne({ 
-          email: payload.email,
-          _id: { $ne: id }
-        });
-        
-        if (existingAdmin) {
-          return {
-            success: false,
-            message: "Email already in use",
-          };
-        }
-        admin.email = payload.email;
-      }
-
-      await admin.save();
-
-      const adminData = admin.toObject();
-      delete adminData.password;
-
-      return {
-        success: true,
-        message: "Admin updated successfully",
-        data: adminData,
-      };
-    } catch (error) {
-      console.error("Error updating admin:", error);
-      throw error;
+      admin.email = payload.email.toLowerCase();
     }
+
+    // Update fields
+    if (payload.fullName) admin.fullName = payload.fullName;
+    if (payload.status) admin.status = payload.status; // Keep case as sent
+
+    await admin.save();
+
+    const adminData = admin.toObject();
+    delete adminData.password;
+
+    return {
+      success: true,
+      message: "Admin updated successfully",
+      data: adminData,
+    };
+  } catch (error) {
+    console.error("Error updating admin:", error);
+    throw error;
   }
-
-  async deleteAdmin(id) {
-    try {
-      const admin = await Admin.findByIdAndDelete(id);
-      
-      if (!admin) {
-        return {
-          success: false,
-          message: "Admin not found",
-        };
-      }
-
+}
+  // ==========================================
+  // DELETE ADMIN
+  // ==========================================
+  async deleteAdmin(userId) {
+  try {
+    const admin = await Admin.findOneAndDelete({ userId: userId });
+    
+    if (!admin) {
       return {
-        success: true,
-        message: "Admin deleted successfully",
+        success: false,
+        message: "Admin not found",
       };
-    } catch (error) {
-      console.error("Error deleting admin:", error);
-      throw error;
     }
+
+    return {
+      success: true,
+      message: "Admin deleted successfully",
+    };
+  } catch (error) {
+    console.error("Error deleting admin:", error);
+    throw error;
   }
+}
 }
 
 module.exports = new AdminManagement();

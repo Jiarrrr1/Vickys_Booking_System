@@ -144,6 +144,44 @@ class AdminController {
       message: "Logged out successfully"
     });
   });
+
+   // controllers/adminController.js - FIXED verifyPassword method
+async verifyPassword(req, res) {
+  try {
+    const { password } = req.body;
+    
+    if (!password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password is required'
+      });
+    }
+
+    // Get admin ID from the authenticated user (set by verifyAdminToken middleware)
+    const adminId = req.admin?.id || req.admin?._id;
+    
+    if (!adminId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+
+    // Use adminServices (lowercase) not AdminServices
+    const isValid = await adminServices.verifyPassword(adminId, password);
+    
+    res.json({
+      success: isValid,
+      message: isValid ? 'Password verified' : 'Invalid password'
+    });
+  } catch (error) {
+    console.error('Error verifying password:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+}
 }
 
 module.exports = new AdminController();

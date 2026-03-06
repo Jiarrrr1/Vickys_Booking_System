@@ -51,6 +51,11 @@ const router = createRouter({
           name: 'AdminArchives',
           component: () => import('@/views/TrashView.vue')
         },
+        {
+          path: 'admins',
+          name: 'AdminAdmins',
+          component: () => import('@/views/AdminManagementView.vue')
+        },
         // {
         //   path: 'settings',
         //   name: 'AdminSettings',

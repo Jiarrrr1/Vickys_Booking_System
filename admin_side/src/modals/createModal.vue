@@ -216,7 +216,7 @@
       <span>Remaining Balance:</span>
       <strong>₱{{ formatNumber(formData.remainingBalance) }}</strong>
     </div>
-    <div v-if="formData.status != 'Checked In' && formData.paymentType === 'full'" class="summary-row paid-indicator">
+    <div v-if="formData.status != 'Checked In' && formData.paymentType === 'Full Payment'" class="summary-row paid-indicator">
     <span>Payment Status:</span>
     <strong class="paid-text">✓ Fully Paid</strong>
   </div>
@@ -330,7 +330,7 @@ const formData = reactive({
   remainingBalance: 0,
   totalNights: 0,
   request: '',
-  status: 'Paid'
+  status: 'Confirmed'
 })
 
 // ==========================================
@@ -736,7 +736,7 @@ const handleSubmit = async () => {
       checkIn: formData.checkIn,
       checkOut: formData.checkOut,
       request: formData.request || "",
-      paymentType: formData.paymentType === 'down' ? 'Downpayment' : 'Full Payment',
+      paymentType: formData.paymentType,
       paymentMethod: paymentMethod, // Now 'GCash' or 'Cash'
       roomId: formData.roomId,
       roomName: formData.roomName,
@@ -804,7 +804,7 @@ const handleSubmit = async () => {
       if (formData.paymentMethod === 'Gcash') {
         successMessage = 'Reservation and payment have been successfully recorded.'
       } else {
-        if (formData.paymentType === 'full') {
+        if (formData.paymentType === 'Full Payment') {
           successMessage = 'Reservation created successfully. Full payment will be collected at check-in.'
         } else {
           successMessage = 'Reservation created successfully. Downpayment will be collected at check-in.'

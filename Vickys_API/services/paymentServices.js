@@ -1,11 +1,10 @@
 const Payment = require('../models/Payment.Model');
 const Reservation = require('../models/Reservation.Model');
 const generateId = require("../utils/generateId");
-const DeletedItemsService = require('../services/deletedItemsServices');  // ✅ ADD THIS
+const DeletedItemsService = require('../services/deletedItemsServices');
 
 class PaymentManagement {
     // Create a new payment
-  // Create a new payment
 async createPayment(payload, id) {
     try {             
         const newId = await generateId();
@@ -19,10 +18,25 @@ async createPayment(payload, id) {
             throw new Error(`Reservation with ID ${id} not found`);
         }
 
-        // Calculate new remaining balance
-        const currentBalance = reservation.remainingBalance || 0;
-        const paymentAmount = payload.amount || 0;
-        const newBalance = Math.max(0, currentBalance - paymentAmount);
+        console.log(`💳 Creating payment for reservation #${id}`);
+        console.log(`   Current reservation balance: ₱${reservation.remainingBalance}`);
+        console.log(`   Payment amount: ₱${payload.amount}`);
+        console.log(`   Balance from payload: ₱${payload.balance}`);
+
+        // ✅ FIXED: Use the balance from the payload if provided, otherwise calculate
+        let newBalance;
+        
+        if (payload.balance !== undefined && payload.balance !== null) {
+            // Use the balance sent from the frontend/reservation service
+            newBalance = payload.balance;
+            console.log(`   Using balance from payload: ₱${newBalance}`);
+        } else {
+            // Fallback: Calculate from current balance (for admin-created payments)
+            const currentBalance = reservation.remainingBalance || 0;
+            const paymentAmount = payload.amount || 0;
+            newBalance = Math.max(0, currentBalance - paymentAmount);
+            console.log(`   Calculated balance: ₱${newBalance}`);
+        }
 
         const newPayment = new Payment({
             paymentId: newId,
@@ -31,8 +45,8 @@ async createPayment(payload, id) {
             email: payload.email,
             phoneNumber: payload.phoneNumber,
             roomName: payload.roomName,
-            amount: paymentAmount,
-            balance: newBalance, // Store the NEW balance after payment
+            amount: payload.amount || 0,
+            balance: newBalance,  // ✅ Use the correct balance
             paymentMethod: payload.paymentMethod,
             referenceNumber: payload.referenceNumber || "",
             paymentType: payload.paymentType,
@@ -42,6 +56,8 @@ async createPayment(payload, id) {
 
         await newPayment.save();
         console.log(`✅ Payment #${newId} created for reservation #${reservation.reservationId}`);
+        console.log(`   Payment amount: ₱${newPayment.amount}`);
+        console.log(`   New balance: ₱${newPayment.balance}`);
 
         // ALWAYS update the reservation's remaining balance
         const updateData = {
@@ -73,11 +89,12 @@ async createPayment(payload, id) {
         throw error;
     }
 }
-    // Get all payments (EXCLUDE deleted)  ✅ UPDATE THIS
+
+    // Get all payments (EXCLUDE deleted)
     async getAllPayments() {
         try {
             const payments = await Payment
-                .find({ isDeleted: { $ne: true } })  // ✅ Exclude soft-deleted
+                .find({ isDeleted: { $ne: true } })
                 .sort({ createdAt: -1 });
             
                 
@@ -91,12 +108,12 @@ async createPayment(payload, id) {
         }
     }
 
-    // Get payment by ID (EXCLUDE deleted)  ✅ UPDATE THIS
+    // Get payment by ID (EXCLUDE deleted)
     async getPaymentById(id) {
         try {
             const payment = await Payment.findOne({ 
                 paymentId: id,
-                isDeleted: { $ne: true }  // ✅ Exclude deleted
+                isDeleted: { $ne: true }
             }).exec();
             
             if (!payment) {
@@ -116,13 +133,13 @@ async createPayment(payload, id) {
         }
     }
 
-    // Get payments by reservation ID (EXCLUDE deleted)  ✅ UPDATE THIS
+    // Get payments by reservation ID (EXCLUDE deleted)
     async getPaymentsByReservation(reservationId) {
         try {
             const payments = await Payment
                 .find({ 
                     reservationId,
-                    isDeleted: { $ne: true }  // ✅ Exclude deleted
+                    isDeleted: { $ne: true }
                 })
                 .sort({ createdAt: -1 });
             return {
@@ -143,7 +160,7 @@ async createPayment(payload, id) {
             const updatedPayment = await Payment.findOneAndUpdate(
                 { 
                     paymentId: id,
-                    isDeleted: { $ne: true }  // ✅ Only update non-deleted
+                    isDeleted: { $ne: true }
                 },
                 { 
                     status: status,
@@ -187,7 +204,7 @@ async createPayment(payload, id) {
             const updatedPayment = await Payment.findOneAndUpdate(
                 { 
                     paymentId: id,
-                    isDeleted: { $ne: true }  // ✅ Only update non-deleted
+                    isDeleted: { $ne: true }
                 },
                 {
                     amount: payload.amount,
@@ -218,7 +235,7 @@ async createPayment(payload, id) {
         }
     }
 
-    // ✅ SOFT DELETE - Move to trash (SAME AS FEEDBACK)
+    // Soft delete
     async deletePayment(id, deletedBy = null) {
         try {
             console.log(`Soft deleting payment: ${id}`);
@@ -236,11 +253,11 @@ async createPayment(payload, id) {
         }
     }
 
-    // Get payment statistics (EXCLUDE deleted)  ✅ UPDATE THIS
+    // Get payment statistics (EXCLUDE deleted)
     async getPaymentStats() {
         try {
             const payments = await Payment.find({ 
-                isDeleted: { $ne: true }  // ✅ Exclude deleted
+                isDeleted: { $ne: true }
             });
             
             const totalRevenue = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
@@ -278,11 +295,11 @@ async createPayment(payload, id) {
         }
     }
 
-    // Get payments by date range (EXCLUDE deleted)  ✅ UPDATE THIS
+    // Get payments by date range (EXCLUDE deleted)
     async getPaymentsByDateRange(startDate, endDate) {
         try {
             const payments = await Payment.find({
-                isDeleted: { $ne: true },  // ✅ Exclude deleted
+                isDeleted: { $ne: true },
                 createdAt: { 
                     $gte: startDate,
                     $lte: endDate 

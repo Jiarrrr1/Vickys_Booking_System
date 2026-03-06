@@ -1,32 +1,56 @@
 const mongoose = require('mongoose');
 
 const adminSchema = new mongoose.Schema({
-    userId:{
-        type:Number,
+   userId: {
+        type: String,
         required: true,
         unique: true,
+        index: true
     },
     fullName: {
         type: String,
-        required: true, 
+        required: true,
+        trim: true
+    },
+    userName: {
+        type: String,
+        required: true,
+        unique: true,
         trim: true,
+        lowercase: true,
+        index: true
     },
     email: {
         type: String,
         required: true,
+        unique: true,
+        trim: true,
+        lowercase: true,
+        index: true
     },
     password: {
-        type:String,
-        required: true,
+        type: String,
+        required: true
+    },
+    status: {
+        type: String,
+        enum: ['Active', 'Inactive',],
+        default: 'active',
+        index: true
+    },
+    lastLogin: {
+        type: Date,
+        default: null
     },
     createdAt: {
-    type: String,
-    default: getDateValue(),
-  },
-  updatedAt: {
-    type: String,
-    default: getDateValue(),
-  },
+        type: Date,
+        default: getDateValue(),
+        immutable: true
+    },
+    updatedAt: {
+        type: Date,
+        default: getDateValue()
+    }
 })
 
 
