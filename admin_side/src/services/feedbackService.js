@@ -1,5 +1,5 @@
 import { reactive, computed } from 'vue'
-import axios from 'axios'
+import { adminClient } from './api' // Import adminClient instead of axios
 
 // Adjust this to match your backend URL
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1'
@@ -67,20 +67,26 @@ export function useFeedbacksService() {
     return state.feedbacks.filter(f => f.isDisplay === false).length
   })
 
-  // Fetch all feedbacks (admin)
+  // Fetch all feedbacks (admin) - FIXED: Use adminClient instead of axios
   const fetchFeedbacks = async () => {
     state.isLoading = true
     state.error = null
 
     try {
-      console.log('📡 Fetching feedbacks from:', `${API_BASE_URL}/admin/getAllFeedback`)
-      const response = await axios.get(`${API_BASE_URL}/admin/getAllFeedback`)
+      console.log('📡 Fetching feedbacks from:', '/admin/getAllFeedback')
       
-      console.log('📥 Response received:', response.data)
+      // Use adminClient which automatically includes the auth token
+      const response = await adminClient.get('/admin/getAllFeedback')
       
-      if (response.data && response.data.success) {
+      console.log('📥 Response received:', response)
+      console.log('📥 Response data:', response.data)
+      
+      // Handle the response structure from adminClient (which returns response.data directly)
+      const responseData = response.data
+      
+      if (responseData && responseData.success) {
         // Map backend data to frontend format (feedBackId -> id)
-        state.feedbacks = (response.data.data || []).map(feedback => ({
+        state.feedbacks = (responseData.data || []).map(feedback => ({
           ...feedback,
           id: feedback.feedBackId || feedback._id,
           from: feedback.from,
@@ -93,22 +99,27 @@ export function useFeedbacksService() {
         console.log('✅ Feedbacks loaded:', state.feedbacks.length)
         return { success: true, data: state.feedbacks }
       } else {
-        throw new Error(response.data?.message || 'Failed to fetch feedbacks')
+        throw new Error(responseData?.message || 'Failed to fetch feedbacks')
       }
     } catch (error) {
       const errorMessage = error.response?.data?.message || error.message || 'Failed to fetch feedbacks'
       state.error = errorMessage
       console.error('❌ Error fetching feedbacks:', error)
+      console.error('Error details:', {
+        url: error.config?.url,
+        status: error.response?.status,
+        data: error.response?.data
+      })
       return { success: false, error: errorMessage }
     } finally {
       state.isLoading = false
     }
   }
 
-  // Fetch single feedback by ID
+  // Fetch single feedback by ID - FIXED: Use adminClient
   const fetchFeedbackById = async (id) => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/admin/getFeedback/${id}`)
+      const response = await adminClient.get(`/admin/getFeedback/${id}`)
       
       if (response.data && response.data.success) {
         return { success: true, data: response.data.data }
@@ -122,18 +133,15 @@ export function useFeedbacksService() {
     }
   }
 
-  // Toggle feedback display status
+  // Toggle feedback display status - FIXED: Use adminClient
   const toggleFeedbackStatus = async (feedbackId, newStatus) => {
-    const url = `${API_BASE_URL}/admin/updateFeedbackStatus/${feedbackId}`
-    
     console.group('🔄 Toggle Feedback Display')
     console.log('Feedback ID:', feedbackId)
     console.log('New Status:', newStatus)
-    console.log('API URL:', url)
     console.log('Request Body:', { isDisplay: newStatus })
     
     try {
-      const response = await axios.patch(url, { isDisplay: newStatus })
+      const response = await adminClient.patch(`/admin/updateFeedbackStatus/${feedbackId}`, { isDisplay: newStatus })
       
       console.log('📥 Response Status:', response.status)
       console.log('📥 Response Data:', response.data)
@@ -171,12 +179,14 @@ export function useFeedbacksService() {
     }
   }
 
-  // Delete feedback
-  const deleteFeedback = async (feedbackId) => {
+  // Delete feedback - FIXED: Use adminClient
+  const deleteFeedback = async (feedbackId, deletedBy) => {
     try {
-      const response = await axios.delete(
-        `${API_BASE_URL}/admin/deleteFeedback/${feedbackId}`
-      )
+      const response = await adminClient.delete(`/admin/deleteFeedback/${feedbackId}`, {
+        data: { deletedBy }
+      })
+
+      console.log('Feedback Response:', response);
 
       if (response.data && response.data.success) {
         // Remove from local state using id (mapped from feedBackId)
@@ -196,7 +206,7 @@ export function useFeedbacksService() {
     }
   }
 
-  // Create feedback (public - for frontend use)
+  // Create feedback (public - no auth required)
   const createFeedback = async (feedbackData) => {
     try {
       const response = await axios.post(
@@ -216,7 +226,7 @@ export function useFeedbacksService() {
     }
   }
 
-  // Get approved feedbacks (for public display)
+  // Get approved feedbacks (for public display - no auth required)
   const fetchApprovedFeedbacks = async () => {
     try {
       const response = await axios.get(`${API_BASE_URL}/feedbacks/getApprovedFeedback`)

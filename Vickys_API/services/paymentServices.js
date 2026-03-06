@@ -1,66 +1,86 @@
 const Payment = require('../models/Payment.Model');
 const Reservation = require('../models/Reservation.Model');
 const generateId = require("../utils/generateId");
+const DeletedItemsService = require('../services/deletedItemsServices');  // ✅ ADD THIS
 
 class PaymentManagement {
     // Create a new payment
-    async createPayment(payload, id) {
-        try {
-            console.log('Creating payment:', payload);
-            
-            const newId = await generateId();
+  // Create a new payment
+async createPayment(payload, id) {
+    try {             
+        const newId = await generateId();
 
-            // Find the reservation to update its payment status
-            const reservation = await Reservation.findOne({ 
-                reservationId: id 
-            });
+        // Find the reservation to update its payment status
+        const reservation = await Reservation.findOne({ 
+            reservationId: id 
+        });     
 
-            console.log('Found reservation:', reservation);
-            
-
-            const newPayment = new Payment({
-                paymentId: newId,
-                reservationId: reservation.reservationId,
-                guestName: payload.guestName,
-                email: payload.email,
-                phoneNumber: payload.phoneNumber,
-                roomName: payload.roomName,
-                amount: payload.amount,
-                paymentMethod: payload.paymentMethod || 'GCash',
-                referenceNumber: payload.referenceNumber,
-                paymentType: payload.paymentType || 'Downpayment',
-                status: payload.status || 'Pending',
-                notes: payload.notes || '',
-            });
-
-            await newPayment.save();
-
-            // If payment is successful, update reservation status
-            if (payload.status === 'Paid') {
-                await Reservation.findOneAndUpdate(
-                    { reservationId: payload.reservationId },
-                    { 
-                        paymentStatus: 'Paid',
-                        updatedAt: getDateValue()
-                    }
-                );
-            }
-
-            return {
-                success: true,
-                message: "Payment recorded successfully",
-                data: newPayment,
-            };
-        } catch (error) {
-            console.error('Error creating payment:', error);
-            throw error;
+        if (!reservation) {
+            throw new Error(`Reservation with ID ${id} not found`);
         }
-    }
 
-    // Get all payments
+        // Calculate new remaining balance
+        const currentBalance = reservation.remainingBalance || 0;
+        const paymentAmount = payload.amount || 0;
+        const newBalance = Math.max(0, currentBalance - paymentAmount);
+
+        const newPayment = new Payment({
+            paymentId: newId,
+            reservationId: reservation.reservationId,
+            guestName: payload.guestName,
+            email: payload.email,
+            phoneNumber: payload.phoneNumber,
+            roomName: payload.roomName,
+            amount: paymentAmount,
+            balance: newBalance, // Store the NEW balance after payment
+            paymentMethod: payload.paymentMethod,
+            referenceNumber: payload.referenceNumber || "",
+            paymentType: payload.paymentType,
+            status: 'Paid',
+            notes: payload.notes || "",
+        });
+
+        await newPayment.save();
+        console.log(`✅ Payment #${newId} created for reservation #${reservation.reservationId}`);
+
+        // ALWAYS update the reservation's remaining balance
+        const updateData = {
+            remainingBalance: newBalance,
+            updatedAt: getDateValue()
+        };
+
+        // If payment is successful and balance becomes 0, also update payment status
+        if (newBalance === 0) {
+            updateData.paymentStatus = 'Paid';
+            console.log('💰 Payment completed - remaining balance is now 0');
+        }
+
+        await Reservation.findOneAndUpdate(
+            { reservationId: reservation.reservationId },
+            updateData,
+            { new: true }
+        );
+
+        console.log(`✅ Reservation #${reservation.reservationId} balance updated to ₱${newBalance}`);
+
+        return {
+            success: true,
+            message: "Payment recorded successfully",
+            data: newPayment,
+        };
+    } catch (error) {
+        console.error('Error creating payment:', error);
+        throw error;
+    }
+}
+    // Get all payments (EXCLUDE deleted)  ✅ UPDATE THIS
     async getAllPayments() {
         try {
-            const payments = await Payment.find({}).sort({ createdAt: -1 });
+            const payments = await Payment
+                .find({ isDeleted: { $ne: true } })  // ✅ Exclude soft-deleted
+                .sort({ createdAt: -1 });
+            
+                
             return {
                 success: true,
                 data: payments
@@ -71,10 +91,13 @@ class PaymentManagement {
         }
     }
 
-    // Get payment by ID
+    // Get payment by ID (EXCLUDE deleted)  ✅ UPDATE THIS
     async getPaymentById(id) {
         try {
-            const payment = await Payment.findOne({ paymentId: id }).exec();
+            const payment = await Payment.findOne({ 
+                paymentId: id,
+                isDeleted: { $ne: true }  // ✅ Exclude deleted
+            }).exec();
             
             if (!payment) {
                 return {
@@ -93,10 +116,15 @@ class PaymentManagement {
         }
     }
 
-    // Get payments by reservation ID
+    // Get payments by reservation ID (EXCLUDE deleted)  ✅ UPDATE THIS
     async getPaymentsByReservation(reservationId) {
         try {
-            const payments = await Payment.find({ reservationId }).sort({ createdAt: -1 });
+            const payments = await Payment
+                .find({ 
+                    reservationId,
+                    isDeleted: { $ne: true }  // ✅ Exclude deleted
+                })
+                .sort({ createdAt: -1 });
             return {
                 success: true,
                 data: payments
@@ -109,9 +137,14 @@ class PaymentManagement {
 
     // Update payment status
     async updatePaymentStatus(id, status) {
+        console.log("fetched From Payment:", id, status);
+        
         try {
             const updatedPayment = await Payment.findOneAndUpdate(
-                { paymentId: id },
+                { 
+                    paymentId: id,
+                    isDeleted: { $ne: true }  // ✅ Only update non-deleted
+                },
                 { 
                     status: status,
                     updatedAt: getDateValue()
@@ -152,7 +185,10 @@ class PaymentManagement {
     async updatePayment(id, payload) {
         try {
             const updatedPayment = await Payment.findOneAndUpdate(
-                { paymentId: id },
+                { 
+                    paymentId: id,
+                    isDeleted: { $ne: true }  // ✅ Only update non-deleted
+                },
                 {
                     amount: payload.amount,
                     paymentMethod: payload.paymentMethod,
@@ -182,32 +218,30 @@ class PaymentManagement {
         }
     }
 
-    // Delete payment
-    async deletePayment(id) {
+    // ✅ SOFT DELETE - Move to trash (SAME AS FEEDBACK)
+    async deletePayment(id, deletedBy = null) {
         try {
-            const deletedPayment = await Payment.findOneAndDelete({ paymentId: id });
-
-            if (!deletedPayment) {
-                return {
-                    success: false,
-                    message: "Payment not found"
-                };
-            }
-
-            return {
-                success: true,
-                message: "Payment deleted successfully"
-            };
+            console.log(`Soft deleting payment: ${id}`);
+            
+            const result = await DeletedItemsService.moveToTrash(
+                'payment',
+                id,
+                deletedBy
+            );
+            
+            return result;
         } catch (error) {
             console.error('Error deleting payment:', error);
             throw error;
         }
     }
 
-    // Get payment statistics
+    // Get payment statistics (EXCLUDE deleted)  ✅ UPDATE THIS
     async getPaymentStats() {
         try {
-            const payments = await Payment.find({});
+            const payments = await Payment.find({ 
+                isDeleted: { $ne: true }  // ✅ Exclude deleted
+            });
             
             const totalRevenue = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
             const paidCount = payments.filter(p => p.status === 'Paid').length;
@@ -244,15 +278,15 @@ class PaymentManagement {
         }
     }
 
-    // Get payments by date range
+    // Get payments by date range (EXCLUDE deleted)  ✅ UPDATE THIS
     async getPaymentsByDateRange(startDate, endDate) {
         try {
-            // This is a simple implementation - adjust based on your date format
             const payments = await Payment.find({
-                $and: [
-                    { createdAt: { $gte: startDate } },
-                    { createdAt: { $lte: endDate } }
-                ]
+                isDeleted: { $ne: true },  // ✅ Exclude deleted
+                createdAt: { 
+                    $gte: startDate,
+                    $lte: endDate 
+                }
             }).sort({ createdAt: -1 });
 
             return {

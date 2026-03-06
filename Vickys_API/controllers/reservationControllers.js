@@ -1,5 +1,6 @@
 const reservationServices = require("../services/reservationServices")
 const tryandCatch = require("../utils/tryAndCatch")
+const DeletedItemsService = require('../services/deletedItemsServices');
 
 class ReservationController {
     createReservation = tryandCatch(async (req, res) => {
@@ -42,6 +43,29 @@ class ReservationController {
             data: updated
         });
     })
+    // Soft delete booking (move to trash)
+async deleteBooking(req, res) {
+    try {
+        const { id } = req.params;
+        const deletedBy = req.admin?.email || 'Admin';
+        
+        console.log(`🗑️ Soft deleting booking: ${id} by ${deletedBy}`);
+        
+        const result = await DeletedItemsService.moveToTrash(
+            'booking',  // item type
+            id,         // original ID (reservationId)
+            deletedBy   // who deleted it
+        );
+        
+        return res.status(200).json(result);
+    } catch (error) {
+        console.error('Error deleting booking:', error);
+        return res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+}
 
         
 }

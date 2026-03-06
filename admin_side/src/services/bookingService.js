@@ -1,23 +1,13 @@
 // src/services/bookingService.js
 import { reactive, computed } from 'vue'
-import axios from 'axios'
+import { adminClient } from './api' // 👈 Import adminClient instead of axios
 
 // Use absolute URL temporarily to test
 const API_BASE_URL = 'http://localhost:3001/api/v1'
 
-const apiClient = axios.create({
-  baseURL: API_BASE_URL,
-  headers: { 'Content-Type': 'application/json' }
-})
-
-// Add auth token to requests
-apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem('adminToken')
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
-  }
-  return config
-})
+// 👇 Use adminClient instead of creating a new axios instance
+// This will automatically include the auth token
+const apiClient = adminClient
 
 const state = reactive({
   bookings: [],
@@ -28,6 +18,7 @@ const state = reactive({
 })
 
 // Helper to transform backend data to frontend format
+// In bookingService.js
 const transformBooking = (backendBooking) => ({
   id: backendBooking.reservationId || backendBooking._id,
   guest: backendBooking.fullName,
@@ -37,9 +28,9 @@ const transformBooking = (backendBooking) => ({
   checkOut: backendBooking.checkOut,
   status: backendBooking.status || 'Pending',
   bookedOn: backendBooking.createdAt,
-  // Map both fields correctly
-  request: backendBooking.request || '', // Guest special request
-  notes: backendBooking.notes || '',     // Admin notes
+  request: backendBooking.request || '',
+  notes: backendBooking.notes || '',
+  paymentType: backendBooking.paymentType, 
   paymentMethod: backendBooking.paymentMethod,
   totalAmount: backendBooking.totalAmount,
   phoneNumber: backendBooking.phoneNumber,
@@ -106,52 +97,51 @@ const bookingsService = {
   get filteredBookings() { return filteredBookings.value },
   get roomTypes() { return roomTypes.value },
 
-async fetchBookings() {
-  state.isLoading = true
-  state.error = null
+  async fetchBookings() {
+    state.isLoading = true
+    state.error = null
 
-  try {
-    const response = await apiClient.get('/getAllReservations')
-    console.log('Raw API response:', response) // Debug log
-    console.log('Response data:', response.data) // Debug log
-    
-    // Handle different response structures
-    let bookingsData = []
-    
-    if (response.data && response.data.data) {
-      // If response is { success: true, data: [...] }
-      bookingsData = response.data.data
-    } else if (Array.isArray(response.data)) {
-      // If response is directly an array
-      bookingsData = response.data
-    } else if (response.data && Array.isArray(response.data.reservations)) {
-      // If response is { reservations: [...] }
-      bookingsData = response.data.reservations
+    try {
+      const response = await apiClient.get('/getAllReservations')
+      console.log('Raw API response:', response)
+      console.log('Response data:', response.data)
+      
+      // Handle different response structures
+      let bookingsData = []
+      
+      if (response.data && response.data.data) {
+        // If response is { success: true, data: [...] }
+        bookingsData = response.data.data
+      } else if (Array.isArray(response.data)) {
+        // If response is directly an array
+        bookingsData = response.data
+      } else if (response.data && Array.isArray(response.data.reservations)) {
+        // If response is { reservations: [...] }
+        bookingsData = response.data.reservations
+      }
+      
+      console.log('Bookings data extracted:', bookingsData)
+      
+      state.bookings = Array.isArray(bookingsData) 
+        ? bookingsData.map(transformBooking)
+        : []
+      
+      console.log('✅ Bookings loaded:', state.bookings.length)
+      console.log('First booking sample:', state.bookings[0])
+      
+      return true
+    } catch (error) {
+      console.error('❌ Fetch bookings error:', error)
+      console.error('Error response:', error.response?.data)
+      state.error = error.response?.data?.message || 'Failed to fetch bookings'
+      return false
+    } finally {
+      state.isLoading = false
     }
-    
-    console.log('Bookings data extracted:', bookingsData)
-    
-    state.bookings = Array.isArray(bookingsData) 
-      ? bookingsData.map(transformBooking)
-      : []
-    
-    console.log('✅ Bookings loaded:', state.bookings.length)
-    console.log('First booking sample:', state.bookings[0])
-    
-    return true
-  } catch (error) {
-    console.error('❌ Fetch bookings error:', error)
-    console.error('Error response:', error.response?.data)
-    state.error = error.response?.data?.message || 'Failed to fetch bookings'
-    return false
-  } finally {
-    state.isLoading = false
-  }
-},
+  },
 
   async getBooking(id) {
     try {
-      // ✅ Use the correct endpoint
       const response = await apiClient.get(`/getReservation/${id}`)
       return transformBooking(response.data.data || response.data)
     } catch (error) {
@@ -160,9 +150,86 @@ async fetchBookings() {
     }
   },
 
+ // In bookingService.js - update the createReservationWithPayment function
+
+// In bookingService.js - update the createReservationWithPayment function
+
+async createReservationWithPayment(reservationData) {
+  try {
+    console.log('📦 Step 1: Creating reservation with data:', reservationData)
+    
+    // IMPORTANT: Transform paymentMethod to match model enum
+    const transformedData = {
+      ...reservationData,
+      paymentMethod: reservationData.paymentMethod === 'gcash' ? 'GCash' : 'Cash'
+    }
+    
+    console.log('🔄 Transformed data:', transformedData)
+    
+    // Step 1: Create reservation
+    const reservationResponse = await adminClient.post('/createReservation', transformedData)
+    
+    console.log('✅ Step 1 complete - Reservation response:', reservationResponse.data)
+    
+    if (!reservationResponse.data.success) {
+      throw new Error(reservationResponse.data.message || 'Failed to create reservation')
+    }
+    
+    const reservationId = reservationResponse.data.reservationId || reservationResponse.data.data?.reservationId
+    console.log('📋 Reservation ID created:', reservationId)
+    
+    // Step 2: Create payment ONLY for GCash payments
+    let paymentResponse = null
+    
+    if (reservationData.paymentMethod === 'gcash') {
+      console.log('💰 GCash payment detected - creating payment record')
+      
+      const amount = reservationData.paymentType === 'down' 
+        ? reservationData.downpayment 
+        : reservationData.total
+      
+      const paymentPayload = {
+        guestName: reservationData.fullName,
+        email: reservationData.email,
+        phoneNumber: reservationData.phoneNumber,
+        roomName: reservationData.roomName,
+        amount: amount,
+        paymentMethod: 'GCash', // Always 'GCash' with capital G
+        referenceNumber: reservationData.rfrncNumber,
+        paymentType: reservationData.paymentType === 'down' ? 'Downpayment' : 'Full Payment',
+        status: 'Paid',
+        notes: reservationData.request || '',
+        reservationId: reservationId
+      }
+      
+      console.log('💰 Sending payment payload:', paymentPayload)
+      
+      paymentResponse = await adminClient.post(`/admin/createPayment/${reservationId}`, paymentPayload)
+      console.log('✅ Step 2 complete - Payment response:', paymentResponse.data)
+    } else {
+      console.log('💵 Cash payment detected - no payment record created')
+    }
+    
+    return {
+      success: true,
+      reservation: reservationResponse.data.data,
+      payment: paymentResponse?.data?.data || null,
+      reservationId: reservationId,
+      paymentMethod: reservationData.paymentMethod,
+      paymentType: reservationData.paymentType
+    }
+    
+  } catch (error) {
+    console.error('❌ Error in createReservationWithPayment:')
+    console.error('Error message:', error.message)
+    console.error('Error response:', error.response?.data)
+    console.error('Error status:', error.response?.status)
+    throw error
+  }
+},
+
   async updateBookingStatus(id, status) {
     try {
-      // ✅ Use the correct endpoint
       const response = await apiClient.patch(`/updateStatus/${id}`, { status })
       
       const booking = state.bookings.find(b => b.id === id)
@@ -178,32 +245,51 @@ async fetchBookings() {
     }
   },
 
-  // In your bookingService.js, add this method:
-
-async updateBookingNotes(id, notes) {
-  try {
-    console.log(`Saving notes for booking #${id}:`, notes);
-    
-    // Send as JSON object with notes property
-    const response = await apiClient.patch(`/updateNotes/${id}`, { notes });
-    
-    console.log('Notes update response:', response.data);
-    
-    // Update local state
-    const booking = state.bookings.find(b => b.id === id);
-    if (booking) {
-      booking.notes = notes; // Save to both fields
-      booking.request = notes; // In case your backend uses 'request' field
+  async updateBookingNotes(id, notes) {
+    try {
+      console.log(`Saving notes for booking #${id}:`, notes);
+      
+      const response = await apiClient.patch(`/updateNotes/${id}`, { notes });
+      
+      console.log('Notes update response:', response.data);
+      
+      const booking = state.bookings.find(b => b.id === id);
+      if (booking) {
+        booking.notes = notes;
+        booking.request = notes;
+      }
+      
+      return { success: true, data: response.data };
+    } catch (error) {
+      console.error('❌ Update notes error:', error);
+      console.error('Error details:', error.response?.data);
+      return { success: false, error: error.message };
     }
-    
-    return { success: true, data: response.data };
-  } catch (error) {
-    console.error('❌ Update notes error:', error);
-    console.error('Error details:', error.response?.data);
-    return { success: false, error: error.message };
-  }
-}
-,
+  },
+
+  async deleteBooking(id) {
+    try {
+        console.log(`🗑️ Soft deleting booking #${id}...`);
+        
+        // Call your backend endpoint
+        const response = await adminClient.delete(`/admin/deleteBooking/${id}`);
+        
+        console.log('Delete response:', response.data);
+        
+        if (response.data && response.data.success) {
+            // Remove from local state
+            state.bookings = state.bookings.filter(b => b.id !== id);
+            return { success: true, message: response.data.message };
+        }
+        return { success: false, error: response.data?.message };
+    } catch (error) {
+        console.error('❌ Delete booking error:', error);
+        return { 
+            success: false, 
+            error: error.response?.data?.message || error.message 
+        };
+    }
+  },
 
   setSearchQuery(query) {
     state.searchQuery = query

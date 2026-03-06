@@ -13,7 +13,7 @@ router.get('/getPaymentsByReservation/:reservationId', verifyAdminToken, Payment
 router.get('/getPaymentStats', verifyAdminToken, PaymentController.getPaymentStats);
 router.get('/getPaymentsByDateRange', verifyAdminToken, PaymentController.getPaymentsByDateRange);
 
-router.post('/createPayment/:id', verifyAdminToken, PaymentController.createPayment);
+router.post('/createPayment/:id', PaymentController.createPayment);
 router.patch('/updatePaymentStatus/:id', verifyAdminToken, PaymentController.updatePaymentStatus);
 router.put('/updatePayment/:id', verifyAdminToken, PaymentController.updatePayment);
 router.delete('/deletePayment/:id', verifyAdminToken, PaymentController.deletePayment);

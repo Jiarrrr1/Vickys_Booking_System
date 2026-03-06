@@ -21,32 +21,38 @@
         <div class="info-grid">
           <div class="info-item">
             <span class="info-label">Booking ID</span>
-            <span class="info-value">{{ payment.id }}</span>
+            <span class="info-value">{{ payment.bookingId }}</span>
           </div>
           <div class="info-item">
             <span class="info-label">Guest Name</span>
             <span class="info-value">{{ payment.guest }}</span>
           </div>
-          <div class="info-item">
+          <div class="info-item" style="border-bottom: 3px solid #ccc; padding-bottom: 1rem;">
             <span class="info-label">Room</span>
             <span class="info-value">{{ payment.room }}</span>
+            
           </div>
-          <div class="info-item">
-            <span class="info-label">Amount</span>
-            <span class="info-value amount">₱{{ payment.amt.toLocaleString() }}</span>
-          </div>
-          <div class="info-item">
-            <span class="info-label">Payment Method</span>
-            <span class="info-value">{{ payment.method }}</span>
-          </div>
-          <div class="info-item">
+          
+          <div class="info-item" style="border-bottom: 3px solid #ccc; padding-bottom: 1rem;">
             <span class="info-label">Payment Date</span>
             <span class="info-value">{{ payment.date }}</span>
           </div>
+
+          <div class="info-item" >
+            <span class="info-label">Payment Type</span>
+            <span class="info-value">{{ payment.paymentType}}</span>
+          </div>
+          
+          <div class="info-item ">
+            <span class="info-label amount-item">Amount:</span>
+            <span class="info-value amount">₱{{ payment.amt.toLocaleString() }}</span>
+
+          </div>
+          
         </div>
 
         <!-- Payment Status Update Section -->
-        <div class="status-update-section">
+        <!-- <div class="status-update-section">
           <h3>Update Payment Status</h3>
           <div class="status-controls">
             <select 
@@ -56,9 +62,6 @@
             >
               <option value="Paid">Paid</option>
               <option value="Pending">Pending</option>
-              <option value="Failed">Failed</option>
-              <option value="Refunded">Refunded</option>
-              <option value="Partial">Partial</option>
             </select>
             
             <button 
@@ -69,7 +72,7 @@
               Update Status
             </button>
           </div>
-        </div>
+        </div> -->
 
         <!-- Transaction Details -->
         <div class="transaction-details">
@@ -77,11 +80,11 @@
           <div class="details-grid">
             <div class="detail-row">
               <span class="detail-label">Transaction ID:</span>
-              <span class="detail-value">TXN-{{ String(payment.id).replace('#', '') }}-2026</span>
+              <span class="detail-value">TXN-{{ String(payment.paymentId).replace('#', '') }}-2026</span>
             </div>
             <div class="detail-row">
               <span class="detail-label">Reference Number:</span>
-              <span class="detail-value">REF-{{ Math.floor(Math.random() * 1000000) }}</span>
+              <span class="detail-value">{{ String(payment.referenceNumber) || 'N/A' }}</span>
             </div>
             <div class="detail-row">
               <span class="detail-label">Payment Channel:</span>
@@ -91,7 +94,7 @@
         </div>
 
         <!-- Additional Notes -->
-        <div class="notes-section">
+        <!-- <div class="notes-section">
           <h3>Notes</h3>
           <textarea 
             v-model="notes" 
@@ -99,13 +102,13 @@
             rows="3"
           ></textarea>
           <button class="save-notes-btn" @click="saveNotes">Save Notes</button>
-        </div>
+        </div> -->
       </div>
 
       <!-- Modal Footer -->
       <div class="modal-footer">
         <button class="btn-secondary" @click="closeModal">Close</button>
-        <button class="btn-primary" @click="saveChanges">Save Changes</button>
+        <!-- <button class="btn-primary" @click="closeModal">Save Changes</button> -->
       </div>
     </div>
   </div>
@@ -153,7 +156,7 @@ const closeModal = () => {
 const updateStatus = () => {
   if (selectedStatus.value !== props.payment.status) {
     emit('update-status', {
-      paymentId: props.payment.id,
+      paymentId: props.payment.paymentId,
       newStatus: selectedStatus.value
     })
   }
@@ -195,7 +198,6 @@ const saveChanges = () => {
   width: 90%;
   max-width: 550px;
   max-height: 90vh;
-  overflow-y: auto;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
 }
 
@@ -280,6 +282,7 @@ const saveChanges = () => {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 16px;
+  column-gap: 0;
   margin-bottom: 24px;
   padding: 16px;
   background-color: #f8f9fa;
@@ -291,10 +294,18 @@ const saveChanges = () => {
   flex-direction: column;
 }
 
+
+
 .info-label {
   font-size: 12px;
   color: #666;
   margin-bottom: 4px;
+}
+
+.amount-item  {
+  font-size: 15px;
+  color: #333;
+  font-weight:1000;
 }
 
 .info-value {
@@ -307,6 +318,12 @@ const saveChanges = () => {
   color: #28a745;
   font-size: 18px;
   font-weight: 600;
+}
+
+.info-value.balance {
+  color: #d71d30;
+  font-size: 18px;
+  font-weight: 700;
 }
 
 .status-update-section,

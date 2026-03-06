@@ -30,6 +30,16 @@ const feedBackSchema = new mongoose.Schema({
         type: Boolean,
         default: false  // false = hidden, true = shown
     },
+      // Soft delete flag
+    isDeleted: {
+        type: Boolean,
+        default: false,
+        index: true  // For faster queries
+    },
+    deletedAt: {
+        type: Date,
+        default: null
+    },
     createdAt: {
         type: String,
         default: getDateValue(),
@@ -39,6 +49,9 @@ const feedBackSchema = new mongoose.Schema({
         default: getDateValue(),
     },
 })
+
+feedBackSchema.index({ isDeleted: 1, status: 1 });
+
 
 function getDateValue() {
     const date = new Date();

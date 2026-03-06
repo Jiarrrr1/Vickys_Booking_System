@@ -1,51 +1,66 @@
 // src/router/index.js
 import { createRouter, createWebHistory } from 'vue-router'
-
-// Import the auth service - adjust the path based on your actual file name
-import authService from '@/services/auth' // if file is auth.js
-// OR
-// import authService from '@/services/authService' // if file is authService.js
+import authService from '@/services/auth'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
-      path: '/login',
-      name: 'Login',
+      path: '/admin/login',
+      name: 'AdminLogin',
       component: () => import('@/views/LoginView.vue'),
       meta: { requiresGuest: true }
     },
     {
-      path: '/',
+      path: '/admin',
       component: () => import('@/layouts/DashboardLayout.vue'),
       meta: { requiresAuth: true },
       children: [
         {
-          path: '/dashboard',
-          name: 'Dashboard',
+          path: '', // This makes /admin the same as /admin/dashboard
+          name: 'AdminDashboard',
+          redirect: '/admin/dashboard'
+        },
+        {
+          path: 'dashboard',
+          name: 'AdminDashboard',
           component: () => import('@/views/DashboardView.vue')
         },
         {
           path: 'bookings',
-          name: 'Bookings',
+          name: 'AdminBookings',
           component: () => import('@/views/BookingsView.vue')
         },
         {
+          path: 'feedbacks',
+          name: 'AdminFeedbacks',
+          component: () => import('@/views/FeedbacksView.vue')
+        },
+        {
           path: 'payments',
-          name: 'Payments',
+          name: 'AdminPayments',
           component: () => import('@/views/PaymentsView.vue')
         },
         {
-          path: '/feedbacks',
-          name: 'Feedbacks',
-          component: () => import('@/views/FeedbacksView.vue'),
-          meta: { requiresAuth: true }
-        },
-        {
           path: 'revenue',
-          name: 'Revenue',
+          name: 'AdminRevenue',
           component: () => import('@/views/RevenueView.vue')
-        }
+        },
+         {
+          path: 'archives',
+          name: 'AdminArchives',
+          component: () => import('@/views/TrashView.vue')
+        },
+        // {
+        //   path: 'settings',
+        //   name: 'AdminSettings',
+        //   component: () => import('@/views/SettingsView.vue')
+        // },
+        // {
+        //   path: 'profile',
+        //   name: 'AdminProfile',
+        //   component: () => import('@/views/ProfileView.vue')
+        // }
       ]
     },
     {
@@ -56,17 +71,26 @@ const router = createRouter({
   ]
 })
 
-// router/index.js or router/admin.js
+// Navigation guard
 router.beforeEach(async (to, from) => {
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
+  const requiresGuest = to.matched.some(record => record.meta.requiresGuest)
 
-  if (requiresAuth) {
-    const isAuthenticated = authService.isAuthenticated
-    if (!isAuthenticated) {
-      return 'api/v1/admin/login' // ✅ Return the path instead of next()
-    }
-    // Otherwise continue
+  // Check authentication status
+  const isAuthenticated = authService.isAuthenticated
+
+  // If route requires auth and user is not authenticated
+  if (requiresAuth && !isAuthenticated) {
+    return '/admin/login'
   }
+
+  // If route is for guests (login page) and user is already authenticated
+  if (requiresGuest && isAuthenticated) {
+    return '/admin/dashboard'
+  }
+
+  // Otherwise proceed
+  return true
 })
 
 export default router

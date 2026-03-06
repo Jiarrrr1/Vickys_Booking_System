@@ -12,4 +12,5 @@ router.patch('/updateStatus/:id', ReservationController.updateStatus);
 
 router.patch('/updateNotes/:id', ReservationController.updateNotes);
 
+router.delete('/admin/deleteBooking/:id', ReservationController.deleteBooking);
 module.exports = router

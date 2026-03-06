@@ -72,7 +72,7 @@
           <h3>Payment Information</h3>
           <div class="payment-grid">
             <div class="info-item">
-              <span class="info-label">Payment Mode</span>
+              <span class="info-label">Payment Method</span>
               <span class="info-value">{{ booking.paymentMethod || 'Not specified' }}</span>
             </div>
             <div class="info-item">
@@ -83,18 +83,116 @@
               <span class="info-label">Downpayment</span>
               <span class="info-value">₱{{ booking.downpayment.toLocaleString() }}</span>
             </div>
-            <div class="info-item" v-if="booking.remainingBalance">
+            <div class="info-item highlight-balance">
               <span class="info-label">Remaining Balance</span>
-              <span class="info-value">₱{{ booking.remainingBalance.toLocaleString() }}</span>
+              <span class="info-value balance-amount">₱{{ booking.remainingBalance?.toLocaleString() || '0' }}</span>
             </div>
           </div>
         </div>
 
         <!-- Special Request -->
-        <div v-if="booking.notes" class="request-section">
+        <div v-if="booking.request" class="request-section">
           <h3>Special Request</h3>
           <div class="request-box">
             {{ booking.request }}
+          </div>
+        </div>
+
+        <!-- Pay Balance Section - Only show if there's remaining balance -->
+        <div v-if="booking.remainingBalance > 0" class="pay-balance-section">
+          <h3>Pay Balance</h3>
+          
+          <!-- Payment Form -->
+          <div class="payment-form">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="payAmount">Amount (₱) *</label>
+                <input
+                  id="payAmount"
+                  v-model.number="paymentForm.amount"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  required
+                  placeholder="0.00"
+                  :max="booking.remainingBalance"
+                  @input="validatePaymentAmount"
+                  :class="{ 'error-input': paymentErrors.amount }"
+                />
+                <p v-if="paymentErrors.amount" class="error-message">{{ paymentErrors.amount }}</p>
+                <p v-else class="help-text">
+                  Maximum: ₱{{ formatNumber(booking.remainingBalance) }}
+                </p>
+              </div>
+
+              <div class="form-group">
+                <label for="payMethod">Payment Method *</label>
+                <select 
+                  id="payMethod" 
+                  v-model="paymentForm.method" 
+                  required 
+                  @change="handlePaymentMethodChange"
+                >
+                  <option value="GCash">GCash</option>
+                  <option value="Cash">Cash</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <!-- Reference Number - Only show for GCash -->
+              <div class="form-group" v-if="paymentForm.method === 'GCash'">
+                <label for="payReference">Reference Number <span class="required-star">*</span></label>
+                <input
+                  id="payReference"
+                  v-model="paymentForm.referenceNumber"
+                  type="text"
+                  required
+                  placeholder="Enter GCash reference number"
+                  :class="{ 'error-input': paymentErrors.reference }"
+                  @input="validateReference"
+                />
+                <p v-if="paymentErrors.reference" class="error-message">{{ paymentErrors.reference }}</p>
+                <p v-else class="help-text">Required for GCash payments</p>
+              </div>
+
+              <!-- Payment Type - Fixed to Balance Payment -->
+              <div class="form-group">
+                <label>Payment Type</label>
+                <input
+                  type="text"
+                  value="Balance Payment"
+                  disabled
+                  class="readonly-field"
+                />
+              </div>
+            </div>
+
+            <!-- Payment Summary -->
+            <div class="payment-summary">
+              <div class="summary-item">
+                <span>Payment Amount:</span>
+                <strong class="amount-text">₱{{ formatNumber(paymentForm.amount || 0) }}</strong>
+              </div>
+              <div class="summary-item">
+                <span>Payment Method:</span>
+                <strong>{{ paymentForm.method }}</strong>
+              </div>
+              <div class="summary-item highlight">
+                <span>New Balance:</span>
+                <strong>₱{{ formatNumber(calculateNewBalance) }}</strong>
+              </div>
+            </div>
+
+            <!-- Pay Button -->
+            <button 
+              class="pay-btn" 
+              @click="processPayment"
+              :disabled="isProcessingPayment || !isPaymentValid"
+            >
+              <span v-if="!isProcessingPayment">Process Payment</span>
+              <span v-else class="loading-dots">Processing</span>
+            </button>
           </div>
         </div>
 
@@ -112,23 +210,22 @@
               <option value="Checked-in">Checked-in</option>
               <option value="Checked-out">Checked-out</option>
               <option value="Cancelled">Cancelled</option>
-              
             </select>
             
             <button 
-  class="update-btn" 
-  @click="updateStatus"
-  :disabled="isUpdatingStatus || selectedStatus === booking.status"
-  :class="{
-    'btn-success': isUpdatingStatus === 'success',
-    'btn-error': isUpdatingStatus === 'error'
-  }"
->
-  <span v-if="!isUpdatingStatus">Update Status</span>
-  <span v-else-if="isUpdatingStatus === 'success'">✓ Updated!</span>
-  <span v-else-if="isUpdatingStatus === 'error'">✗ Failed</span>
-  <span v-else class="loading-dots">Updating</span>
-</button>
+              class="update-btn" 
+              @click="updateStatus"
+              :disabled="isUpdatingStatus || selectedStatus === booking.status"
+              :class="{
+                'btn-success': isUpdatingStatus === 'success',
+                'btn-error': isUpdatingStatus === 'error'
+              }"
+            >
+              <span v-if="!isUpdatingStatus">Update Status</span>
+              <span v-else-if="isUpdatingStatus === 'success'">✓ Updated!</span>
+              <span v-else-if="isUpdatingStatus === 'error'">✗ Failed</span>
+              <span v-else class="loading-dots">Updating</span>
+            </button>
           </div>
         </div>
 
@@ -141,12 +238,12 @@
             rows="3"
           ></textarea>
           <button 
-  class="save-notes-btn" 
-  @click="saveNotes"
-  :disabled="isSavingNotes"
->
-  {{ isSavingNotes ? 'Saving...' : 'Save Notes' }}
-</button>
+            class="save-notes-btn" 
+            @click="saveNotes"
+            :disabled="isSavingNotes"
+          >
+            {{ isSavingNotes ? 'Saving...' : 'Save Notes' }}
+          </button>
         </div>
       </div>
 
@@ -159,33 +256,76 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, computed, reactive } from 'vue'
 import bookingsService from '@/services/bookingService'
+import { paymentsAPI } from '@/services/api'
 
 const props = defineProps({
   show: Boolean,
   booking: Object
 })
 
-const emit = defineEmits(['close', 'update-status', 'save-notes'])
+const emit = defineEmits(['close', 'update-status', 'save-notes', 'payment-success'])
 
 const selectedStatus = ref('')
 const adminNotes = ref('')
 const isSavingNotes = ref(false)
+const isUpdatingStatus = ref(false)
+
+// Payment form state
+const paymentForm = reactive({
+  amount: 0,
+  method: 'GCash',
+  referenceNumber: ''
+})
+
+const paymentErrors = reactive({
+  amount: '',
+  reference: ''
+})
+
+const isProcessingPayment = ref(false)
+
+// Calculate new balance after payment
+const calculateNewBalance = computed(() => {
+  if (!props.booking) return 0
+  const currentBalance = props.booking.remainingBalance || 0
+  return Math.max(0, currentBalance - (paymentForm.amount || 0))
+})
+
+// Validate payment form
+const isPaymentValid = computed(() => {
+  if (!props.booking) return false
+  
+  const isValidAmount = paymentForm.amount > 0 && 
+                       paymentForm.amount <= props.booking.remainingBalance
+  
+  if (!isValidAmount) return false
+  
+  if (paymentForm.method === 'GCash') {
+    return paymentForm.referenceNumber && paymentForm.referenceNumber.trim() !== ''
+  }
+  
+  return true
+})
 
 // Watch for booking changes to update local state
 watch(() => props.booking, (newBooking) => {
   if (newBooking) {
     selectedStatus.value = newBooking.status || 'Pending'
-    
-    // Load admin notes (from the notes field)
     adminNotes.value = newBooking.notes || ''
+    
+    // Reset payment form
+    paymentForm.amount = newBooking.remainingBalance || 0
+    paymentForm.method = 'GCash'
+    paymentForm.referenceNumber = ''
+    paymentErrors.amount = ''
+    paymentErrors.reference = ''
     
     console.log('Loading booking:', {
       id: newBooking.id,
       guest: newBooking.guest,
-      request: newBooking.request, // Guest special request
-      notes: newBooking.notes      // Admin notes (should be "www")
+      remainingBalance: newBooking.remainingBalance
     })
   }
 }, { immediate: true })
@@ -220,6 +360,12 @@ const calculateNights = (checkIn, checkOut) => {
   }
 }
 
+// Format number
+const formatNumber = (num) => {
+  if (!num && num !== 0) return '0'
+  return Number(num).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
 // Get status class for styling
 const getStatusClass = (status) => {
   const classes = {
@@ -237,8 +383,101 @@ const closeModal = () => {
   emit('close')
 }
 
-// State
-const isUpdatingStatus = ref(false)
+// Validate payment amount
+const validatePaymentAmount = () => {
+  if (!props.booking) {
+    paymentErrors.amount = 'Booking not found'
+    return false
+  }
+  
+  if (paymentForm.amount <= 0) {
+    paymentErrors.amount = 'Amount must be greater than 0'
+    return false
+  }
+  
+  if (paymentForm.amount > props.booking.remainingBalance) {
+    paymentErrors.amount = `Amount cannot exceed remaining balance of ₱${formatNumber(props.booking.remainingBalance)}`
+    return false
+  }
+  
+  paymentErrors.amount = ''
+  return true
+}
+
+// Validate reference number
+const validateReference = () => {
+  if (paymentForm.method === 'GCash' && !paymentForm.referenceNumber) {
+    paymentErrors.reference = 'Reference number is required for GCash payments'
+    return false
+  }
+  paymentErrors.reference = ''
+  return true
+}
+
+// Handle payment method change
+const handlePaymentMethodChange = () => {
+  if (paymentForm.method === 'Cash') {
+    paymentForm.referenceNumber = ''
+    paymentErrors.reference = ''
+  }
+}
+
+// Process payment
+const processPayment = async () => {
+  if (!validatePaymentAmount()) return
+  if (paymentForm.method === 'GCash' && !validateReference()) return
+
+  isProcessingPayment.value = true
+
+  try {
+    const paymentData = {
+      guestName: props.booking.guest,
+      email: props.booking.email,
+      phoneNumber: props.booking.phoneNumber,
+      roomName: props.booking.room,
+      amount: paymentForm.amount,
+      paymentMethod: paymentForm.method,
+      referenceNumber: paymentForm.method === 'GCash' ? paymentForm.referenceNumber : '',
+      paymentType: 'Balance Payment',
+      notes: `Balance payment for booking #${props.booking.id}`
+    }
+
+    console.log('💰 Processing payment:', paymentData)
+    
+    const response = await paymentsAPI.create(props.booking.id, paymentData)
+    
+    if (response.data?.success) {
+      console.log('✅ Payment successful:', response.data)
+      
+      // Update local booking data
+      if (props.booking) {
+        props.booking.remainingBalance = calculateNewBalance.value
+      }
+      
+      // Emit success event
+      emit('payment-success', {
+        bookingId: props.booking.id,
+        amount: paymentForm.amount,
+        newBalance: calculateNewBalance.value
+      })
+      
+      // Reset payment form
+      paymentForm.amount = props.booking.remainingBalance || 0
+      paymentForm.referenceNumber = ''
+      paymentErrors.reference = ''
+      
+      // Show success message
+      alert(`Payment of ₱${formatNumber(paymentForm.amount)} processed successfully!\nNew balance: ₱${formatNumber(calculateNewBalance.value)}`)
+    } else {
+      throw new Error(response.data?.message || 'Failed to process payment')
+    }
+  } catch (error) {
+    console.error('❌ Payment failed:', error)
+    alert(`Payment failed: ${error.response?.data?.message || error.message}`)
+  } finally {
+    isProcessingPayment.value = false
+  }
+}
 
 // Update status with loading state
 const updateStatus = async () => {
@@ -247,7 +486,6 @@ const updateStatus = async () => {
   isUpdatingStatus.value = true
   
   try {
-    // Add delay to show loading state
     await new Promise(resolve => setTimeout(resolve, 500))
     
     emit('update-status', {
@@ -255,7 +493,6 @@ const updateStatus = async () => {
       newStatus: selectedStatus.value
     })
     
-    // Brief success state
     isUpdatingStatus.value = 'success'
     await new Promise(resolve => setTimeout(resolve, 300))
     
@@ -285,13 +522,9 @@ const saveNotes = async () => {
     if (result.success) {
       console.log('✅ Notes saved successfully')
       
-      // Update the local booking object with the new notes
       if (props.booking) {
         props.booking.notes = adminNotes.value
       }
-      
-      // Optional: Show success message
-      // You can add a toast notification here
     } else {
       console.error('❌ Failed to save notes:', result.error)
       alert('Failed to save notes: ' + (result.error || 'Unknown error'))
@@ -305,8 +538,179 @@ const saveNotes = async () => {
   }
 }
 </script>
-<style scoped>
 
+<style scoped>
+/* Add payment section styles */
+.pay-balance-section {
+  margin-bottom: 24px;
+  padding-top: 20px;
+  border-top: 2px solid #4a90e2;
+}
+
+.pay-balance-section h3 {
+  font-size: 16px;
+  color: #333;
+  margin-bottom: 16px;
+  font-weight: 600;
+}
+
+.payment-form {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 20px;
+  border: 1px solid #e0e0e0;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-group label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 6px;
+}
+
+.form-group input,
+.form-group select {
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: border-color 0.2s;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+.required-star {
+  color: #ef4444;
+  margin-left: 2px;
+}
+
+.readonly-field {
+  padding: 10px 12px;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #374151;
+  font-weight: 500;
+  cursor: not-allowed;
+}
+
+.error-input {
+  border-color: #ef4444 !important;
+}
+
+.error-message {
+  color: #ef4444;
+  font-size: 12px;
+  margin-top: 4px;
+  display: block;
+}
+
+.help-text {
+  font-size: 11px;
+  color: #6b7280;
+  margin-top: 4px;
+}
+
+.payment-summary {
+  background: white;
+  border-radius: 6px;
+  padding: 12px;
+  margin: 16px 0;
+  border: 1px solid #e5e7eb;
+}
+
+.summary-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.summary-item:last-child {
+  border-bottom: none;
+}
+
+.summary-item.highlight {
+  background: #f0f9ff;
+  padding: 8px;
+  border-radius: 4px;
+  margin-top: 4px;
+}
+
+.summary-item span {
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.summary-item strong {
+  color: #1f2937;
+  font-size: 14px;
+}
+
+.amount-text {
+  color: #10b981;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.highlight strong {
+  color: #2563eb;
+  font-size: 16px;
+}
+
+.pay-btn {
+  width: 100%;
+  padding: 12px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pay-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.pay-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.highlight-balance {
+  background: #f0f9ff;
+  padding: 8px;
+  border-radius: 4px;
+}
+
+.balance-amount {
+  color: #2563eb;
+  font-size: 18px !important;
+  font-weight: 700 !important;
+}
+
+/* Rest of your existing styles */
 .update-btn.btn-success {
   background-color: #28a745;
 }
@@ -329,55 +733,7 @@ const saveNotes = async () => {
   60% { content: '..'; }
   80%, 100% { content: '...'; }
 }
-/* Add payment section styles */
-.payment-section {
-  margin-bottom: 24px;
-  padding-top: 20px;
-  border-top: 1px solid #e0e0e0;
-}
 
-.payment-section h3 {
-  font-size: 16px;
-  color: #333;
-  margin-bottom: 16px;
-  font-weight: 600;
-}
-
-.payment-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
-}
-
-.request-section {
-  margin-bottom: 24px;
-  padding-top: 20px;
-  border-top: 1px solid #e0e0e0;
-}
-
-.request-section h3 {
-  font-size: 16px;
-  color: #333;
-  margin-bottom: 12px;
-  font-weight: 600;
-}
-
-.request-box {
-  background: #f8f9fa;
-  padding: 16px;
-  border-radius: 8px;
-  border-left: 3px solid var(--gold);
-  font-style: italic;
-  color: #555;
-  line-height: 1.5;
-}
-
-/* Remove Re-schedule option from select */
-.status-select option[value="Re-schedule"] {
-  display: none;
-}
-
-/* Rest of your existing styles remain the same */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -654,7 +1010,8 @@ const saveNotes = async () => {
 @media (max-width: 768px) {
   .info-grid,
   .contact-grid,
-  .payment-grid {
+  .payment-grid,
+  .form-row {
     grid-template-columns: 1fr;
   }
 

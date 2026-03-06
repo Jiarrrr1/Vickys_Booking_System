@@ -92,7 +92,7 @@ const handleLogin = async () => {
     const result = await authService.login(credentials.value)
     
     if (result.success) {
-      router.push('/dashboard')  // Redirect to dashboard, not root
+      router.push('/admin/dashboard')  // Redirect to dashboard, not root
     } else {
       error.value = result.error || 'Login failed. Please try again.'
     }

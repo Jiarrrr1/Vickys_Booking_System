@@ -1,12 +1,19 @@
 // src/services/paymentsService.js
+import { reactive, computed, toRefs } from 'vue'
 import { paymentsAPI } from './api'
+
+// Create a reactive state
+const state = reactive({
+  payments: [],
+  isLoading: false,
+  error: null,
+  searchQuery: ''
+})
 
 class PaymentsService {
   constructor() {
-    this.payments = []
-    this.isLoading = false
-    this.error = null
-    this.searchQuery = ''
+    // Expose reactive state
+    this.state = state
   }
 
   // ==========================================
@@ -14,74 +21,220 @@ class PaymentsService {
   // ==========================================
 
   async fetchPayments(params = {}) {
-    this.isLoading = true
-    this.error = null
+    state.isLoading = true
+    state.error = null
 
     try {
       const response = await paymentsAPI.getAll(params)
-      this.payments = response.data
-      return { success: true, data: this.payments }
+      
+      if (response.data.success) {        
+        if (!Array.isArray(response.data.data)) {
+          console.error('Payments data is not an array:', response.data.data)
+          state.payments = []
+          return { success: true, data: [] }
+        }
+        
+        // Transform each payment
+        const transformed = response.data.data.map(p => this.transformPayment(p))
+        console.log('Transformed payments:', transformed)
+        
+        // Update reactive state
+        state.payments = transformed
+        console.log('State payments updated:', state.payments.length)
+      } else {
+        console.error('API returned success: false', response.data.message)
+        state.payments = []
+      }
+      
+      return { success: true, data: state.payments }
     } catch (error) {
-      this.error = error.response?.data?.message || 'Failed to fetch payments'
+      state.error = error.response?.data?.message || 'Failed to fetch payments'
       console.error('Fetch payments error:', error)
-      return { success: false, error: this.error }
+      return { success: false, error: state.error }
     } finally {
-      this.isLoading = false
+      state.isLoading = false
     }
   }
 
+  // GET /admin/getPayment/:id
   async getPaymentById(id) {
-    this.isLoading = true
-    this.error = null
+    state.isLoading = true
+    state.error = null
 
     try {
       const response = await paymentsAPI.getById(id)
-      return { success: true, data: response.data }
+      
+      if (response.data.success) {
+        return { success: true, data: this.transformPayment(response.data.data) }
+      }
+      return { success: false, error: response.data.message }
     } catch (error) {
-      this.error = error.response?.data?.message || 'Failed to fetch payment'
-      return { success: false, error: this.error }
+      state.error = error.response?.data?.message || 'Failed to fetch payment'
+      return { success: false, error: state.error }
     } finally {
-      this.isLoading = false
+      state.isLoading = false
     }
   }
 
+  // GET /admin/getPaymentsByReservation/:reservationId
   async getPaymentsByBooking(bookingId) {
     try {
       const response = await paymentsAPI.getByBooking(bookingId)
-      return { success: true, data: response.data }
+      
+      if (response.data.success) {
+        return { success: true, data: this.transformPayments(response.data.data || []) }
+      }
+      return { success: false, error: response.data.message }
     } catch (error) {
+      console.error('Get payments by booking error:', error)
       return { success: false, error: error.message }
     }
   }
 
+  // POST /admin/createPayment/:id
   async createPayment(paymentData) {
-    this.isLoading = true
-    this.error = null
+    state.isLoading = true
+    state.error = null
 
     try {
-      const response = await paymentsAPI.create(paymentData)
-      this.payments.push(response.data)
-      return { success: true, data: response.data }
+      const reservationId = paymentData.reservationId
+      const response = await paymentsAPI.create(reservationId, paymentData)
+      
+      if (response.data.success) {
+        const newPayment = this.transformPayment(response.data.data)
+        state.payments.unshift(newPayment)
+        return { success: true, data: newPayment }
+      }
+      return { success: false, error: response.data.message }
     } catch (error) {
-      this.error = error.response?.data?.message || 'Failed to create payment'
-      return { success: false, error: this.error }
+      state.error = error.response?.data?.message || 'Failed to create payment'
+      return { success: false, error: state.error }
     } finally {
-      this.isLoading = false
+      state.isLoading = false
     }
   }
 
+  // PATCH /admin/updatePaymentStatus/:id
   async updatePaymentStatus(id, status) {
     try {
+      console.log(`Updating payment ${id} status to:`, status)
       const response = await paymentsAPI.updateStatus(id, status)
-      const index = this.payments.findIndex(p => p.id === id)
-      if (index !== -1) {
-        this.payments[index].status = status
+      console.log('Update status response:', response.data)
+      
+      if (response.data.success) {
+        // Update local state
+        const index = state.payments.findIndex(p => p.paymentId === id)
+        if (index !== -1) {
+          state.payments[index].status = status
+          Object.assign(state.payments[index], this.transformPayment(response.data.data))
+        }
+        return { success: true, data: response.data.data }
       }
-      return { success: true, data: response.data }
+      return { success: false, error: response.data.message }
     } catch (error) {
       console.error('Update status error:', error)
       return { success: false, error: error.message }
     }
+  }
+
+  // PUT /admin/updatePayment/:id
+  async updatePayment(id, paymentData) {
+    try {
+      console.log(`Updating payment ${id} with:`, paymentData)
+      const response = await paymentsAPI.update(id, paymentData)
+      console.log('Update payment response:', response.data)
+      
+      if (response.data.success) {
+        // Update local state
+        const index = state.payments.findIndex(p => p.paymentId === id)
+        if (index !== -1) {
+          state.payments[index] = this.transformPayment(response.data.data)
+        }
+        return { success: true, data: response.data.data }
+      }
+      return { success: false, error: response.data.message }
+    } catch (error) {
+      console.error('Update payment error:', error)
+      return { success: false, error: error.message }
+    }
+  }
+
+  // DELETE /admin/deletePayment/:id
+  async deletePayment(id) {
+    try {
+      const response = await paymentsAPI.delete(id)
+      
+      if (response.data.success) {
+        // Remove from local state
+        state.payments = state.payments.filter(p => p.paymentId !== id)
+        return { success: true, message: response.data.message }
+      }
+      return { success: false, error: response.data.message }
+    } catch (error) {
+      console.error('Delete payment error:', error)
+      return { success: false, error: error.message }
+    }
+  }
+
+  // GET /admin/getPaymentStats
+  async getPaymentStats() {
+    try {
+      const response = await paymentsAPI.getStats()
+      
+      if (response.data.success) {
+        return { success: true, data: response.data.data }
+      }
+      return { success: false, error: response.data.message }
+    } catch (error) {
+      console.error('Get payment stats error:', error)
+      return { success: false, error: error.message }
+    }
+  }
+
+  // GET /admin/getPaymentsByDateRange
+  async getPaymentsByDateRange(startDate, endDate) {
+    try {
+      const response = await paymentsAPI.getByDateRange({ startDate, endDate })
+      
+      if (response.data.success) {
+        return { success: true, data: this.transformPayments(response.data.data || []) }
+      }
+      return { success: false, error: response.data.message }
+    } catch (error) {
+      console.error('Get payments by date range error:', error)
+      return { success: false, error: error.message }
+    }
+  }
+
+  // ==========================================
+  // TRANSFORM BACKEND DATA TO FRONTEND FORMAT
+  // ==========================================
+
+  transformPayment(backendPayment) {
+    if (!backendPayment) return null
+        
+    return {
+      paymentId: backendPayment.paymentId,
+      bookingId: backendPayment.reservationId,
+      guest: backendPayment.guestName,
+      email: backendPayment.email,
+      phone: backendPayment.phoneNumber,
+      room: backendPayment.roomName,
+      amt: backendPayment.amount,
+      balance: backendPayment.balance,
+      method: backendPayment.paymentMethod,
+      referenceNumber: backendPayment.referenceNumber,
+      paymentType: backendPayment.paymentType,
+      status: backendPayment.status,
+      date: backendPayment.paymentDate,
+      notes: backendPayment.notes,
+      createdAt: backendPayment.createdAt,
+      updatedAt: backendPayment.updatedAt
+    }
+  }
+
+  transformPayments(backendPayments) {
+    return (backendPayments || []).map(p => this.transformPayment(p))
   }
 
   // ==========================================
@@ -89,41 +242,73 @@ class PaymentsService {
   // ==========================================
 
   setSearchQuery(query) {
-    this.searchQuery = query
+    state.searchQuery = query
+  }
+
+  get payments() {
+    return state.payments
+  }
+
+  get isLoading() {
+    return state.isLoading
+  }
+
+  get error() {
+    return state.error
+  }
+
+  get searchQuery() {
+    return state.searchQuery
   }
 
   get filteredPayments() {
-    if (!this.searchQuery) return this.payments
+    if (!state.searchQuery) return state.payments
 
-    const query = this.searchQuery.toLowerCase()
-    return this.payments.filter(payment => 
+    const query = state.searchQuery.toLowerCase()
+    return state.payments.filter(payment => 
       payment.guest?.toLowerCase().includes(query) ||
-      payment.id?.toLowerCase().includes(query) ||
-      payment.bookingId?.toString().includes(query)
+      payment.paymentId?.toLowerCase().includes(query) ||
+      payment.bookingId?.toLowerCase().includes(query) ||
+      payment.referenceNumber?.toLowerCase().includes(query)
     )
   }
 
   get totalRevenue() {
-    return this.payments.reduce((sum, payment) => sum + (payment.amt || 0), 0)
+    return state.payments.reduce((sum, payment) => sum + (payment.amt || 0), 0)
   }
 
   get paidCount() {
-    return this.payments.filter(p => p.status === 'Paid').length
+    return state.payments.filter(p => p.status === 'Paid').length
+  }
+
+  get pendingCount() {
+    return state.payments.filter(p => p.status === 'Pending').length
+  }
+
+  get failedCount() {
+    return state.payments.filter(p => p.status === 'Failed').length
   }
 
   get totalDownpayments() {
-    return this.payments.length * 500
+    return state.payments
+      .filter(p => p.paymentType === 'Downpayment')
+      .reduce((sum, p) => sum + (p.amt || 0), 0)
   }
 
+  get totalPayments() {
+    return state.payments.length
+  }
+
+
   getPaymentsByYear(year) {
-    return this.payments.filter(payment => {
+    return state.payments.filter(payment => {
       const paymentYear = new Date(payment.date).getFullYear()
       return paymentYear === year
     })
   }
 
   getPaymentsByMonth(year, month) {
-    return this.payments.filter(payment => {
+    return state.payments.filter(payment => {
       const paymentDate = new Date(payment.date)
       return paymentDate.getFullYear() === year && paymentDate.getMonth() === month
     })
@@ -134,19 +319,21 @@ class PaymentsService {
   // ==========================================
 
   getLoadingState() {
-    return this.isLoading
+    return state.isLoading
   }
 
   getError() {
-    return this.error
+    return state.error
   }
 
   reset() {
-    this.payments = []
-    this.isLoading = false
-    this.error = null
-    this.searchQuery = ''
+    state.payments = []
+    state.isLoading = false
+    state.error = null
+    state.searchQuery = ''
   }
 }
 
-export default new PaymentsService()
+// Create and export a singleton instance
+const paymentsService = new PaymentsService()
+export default paymentsService

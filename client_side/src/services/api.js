@@ -87,11 +87,12 @@ export const api = {
   },
   
   createReservation: (data) => {
-    console.log('➕ Creating new reservation...');
+    console.log('➕ Creating new reservation...', data);
     return apiRequest('/createReservation', {
       method: 'POST',
       body: JSON.stringify(data),
     });
+    
   },
   
   // Feedback
@@ -107,6 +108,39 @@ export const api = {
     console.log('📋 Fetching approved feedback...');
     return apiRequest('/getApprovedFeedback');
   },
+};
+
+// 👇 MOVE THIS OUTSIDE the api object - this is the fix
+export const paymentsAPI = {
+  // Create payment for a reservation
+  createPayment: (reservationId, data) => {
+    console.log(`💰 Creating payment for reservation: ${reservationId}`, data);
+    return apiRequest(`/admin/createPayment/${reservationId}`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+  
+  // Get payment by ID
+  getPayment: (paymentId) => {
+    console.log(`🔍 Fetching payment: ${paymentId}`);
+    return apiRequest(`/getPayment/${paymentId}`);
+  },
+  
+  // Get payments by reservation
+  getPaymentsByReservation: (reservationId) => {
+    console.log(`📋 Fetching payments for reservation: ${reservationId}`);
+    return apiRequest(`/getPaymentsByReservation/${reservationId}`);
+  },
+  
+  // Update payment status
+  updatePaymentStatus: (paymentId, status) => {
+    console.log(`🔄 Updating payment ${paymentId} status to: ${status}`);
+    return apiRequest(`/updatePaymentStatus/${paymentId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
+  }
 };
 
 // Auto-test connection when service loads

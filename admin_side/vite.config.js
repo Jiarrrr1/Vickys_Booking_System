@@ -34,11 +34,6 @@ export default defineConfig({
         changeOrigin: true,
         secure: false
       },
-      '/createReservation': {
-        target: 'http://localhost:3001',
-        changeOrigin: true,
-        secure: false
-      }
     }
   }
 })

@@ -628,6 +628,32 @@ tbody td {
 /* Vertical divider between filter groups and view mode tabs */
 .rev-cp-divider { width: 1px; height: 44px; background: var(--border); }
 
+.create-btn {
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: var(--r-sm);
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all var(--tr);
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.create-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+}
+
+.create-btn svg {
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+}
 /* ═══════════════════════════════════════════════════════
  *  RESPONSIVE
  ═══════════════════════════════════════════════════════ */

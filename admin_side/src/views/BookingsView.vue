@@ -83,8 +83,18 @@
               <option value="Poolside Cabin">Poolside Cabin</option>
               <option value="Mountain View">Mountain View</option>
             </select>
+
+<button class="create-btn" @click="openCreateModal">
+  <svg viewBox="0 0 24 24" width="18" height="18">
+    <line x1="12" y1="5" x2="12" y2="19"/>
+    <line x1="5" y1="12" x2="19" y2="12"/>
+  </svg>
+  Create Reservation
+</button>
           </div>
         </div>
+
+        
 
         <!-- Table -->
         <div class="twrap">
@@ -98,7 +108,8 @@
                 <th>Check-In</th>
                 <th>Check-Out</th>
                 <th style="text-align: center;">Status</th>
-                <th style="text-align: center;">Actions</th>
+                <th style="text-align: center;">View</th>
+                <th style="text-align: center;">Delete</th>
               </tr>
             </thead>
             <tbody>
@@ -142,6 +153,19 @@
                     </svg>
                   </button>
                 </td>
+                <td style="text-align: center;" @click.stop>
+                  <button 
+                    class="delete-btn" 
+                    @click="confirmDelete(booking)"
+                    title="Delete Booking"
+                  >
+                    <svg viewBox="0 0 24 24" width="16" height="16">
+                      <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                      <line x1="10" y1="11" x2="10" y2="17"/>
+                      <line x1="14" y1="11" x2="14" y2="17"/>
+                    </svg>
+                  </button>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -165,7 +189,7 @@
       </div>
     </section>
 
-    <!-- Booking Details Modal - NOW INSIDE THE ROOT DIV -->
+    <!-- Booking Details Modal -->
     <BookingModal
       :show="showModal"
       :booking="selectedBooking"
@@ -173,6 +197,37 @@
       @update-status="handleStatusUpdate"
       @save-notes="handleSaveNotes"
     />
+
+    <!-- Delete Confirmation Modal -->
+    <ConfirmationModal
+      :show="showDeleteModal"
+      title="Delete Booking?"
+      :message="`Are you sure you want to delete booking #${selectedDeleteBooking?.id} for ${selectedDeleteBooking?.guest}? This will move it to trash.`"
+      confirm-text="Delete"
+      type="danger"
+      @confirm="confirmDeleteBooking"
+      @close="showDeleteModal = false"
+    />
+
+    <!-- Feedback Modal (for success/error messages) -->
+    <div v-if="showFeedbackModal" class="feedback-modal-overlay" @click="showFeedbackModal = false">
+      <div class="feedback-modal" @click.stop>
+        <div class="feedback-icon" :class="feedbackType">
+          <span v-if="feedbackType === 'success'">✓</span>
+          <span v-else-if="feedbackType === 'error'">✗</span>
+          <span v-else>!</span>
+        </div>
+        <h3 class="feedback-title">{{ feedbackTitle }}</h3>
+        <p class="feedback-message">{{ feedbackMessage }}</p>
+        <button class="feedback-btn" @click="showFeedbackModal = false">OK</button>
+      </div>
+    </div>
+
+    <CreateReservationModal
+  :show="showCreateModal"
+  @close="closeCreateModal"
+  @success="handleNewReservation"
+/>
   </div>
 </template>
 
@@ -181,6 +236,8 @@ import { ref, computed, onMounted } from 'vue'
 import bookingsService from '@/services/bookingService'
 import StatCard from '@/components/StatCard.vue'
 import BookingModal from '@/modals/bookingModal.vue'
+import ConfirmationModal from '@/modals/confirmationModal.vue'
+import CreateReservationModal from '@/modals/createModal.vue'
 
 const bookingsStore = bookingsService
 
@@ -188,6 +245,57 @@ const searchQuery = ref('')
 const roomFilter = ref('')
 const showModal = ref(false)
 const selectedBooking = ref(null)
+const showDeleteModal = ref(false)
+const selectedDeleteBooking = ref(null)
+const showFeedbackModal = ref(false)
+const feedbackType = ref('success')
+const feedbackTitle = ref('')
+const feedbackMessage = ref('')
+
+
+// 2️⃣ ADD THIS STATE VARIABLE (with your other ref variables)
+const showCreateModal = ref(false)
+
+// 3️⃣ ADD THESE THREE FUNCTIONS (anywhere in your script setup)
+
+/**
+ * Open the create reservation modal
+ */
+const openCreateModal = () => {
+  showCreateModal.value = true
+}
+
+/**
+ * Close the create reservation modal
+ */
+const closeCreateModal = () => {
+  showCreateModal.value = false
+}
+
+/**
+ * Handle successful reservation creation
+ * @param {Object} newReservation - The newly created reservation data
+ */
+const handleNewReservation = async (newReservation) => {
+  console.log('✅ New reservation created:', newReservation)
+  
+  // Option 1: Show success alert
+  alert(`Reservation #${newReservation.reservationId} created successfully for ${newReservation.fullName}!`)
+  
+  // Option 2: Or show a success toast/notification if you have one
+  // showSuccessToast(`Reservation created for ${newReservation.fullName}`)
+  
+  // Refresh the bookings list to show the new reservation
+  try {
+    await bookingsService.fetchBookings()
+    console.log('📋 Bookings list refreshed')
+  } catch (error) {
+    console.error('❌ Error refreshing bookings:', error)
+  }
+  
+  // Close the modal
+  closeCreateModal()
+}
 
 // Filtered bookings based on search and filter
 const filteredBookings = computed(() => {
@@ -236,6 +344,14 @@ const getStatusClass = (status) => {
   return classes[status] || 'status-pending'
 }
 
+// Show feedback modal
+const showFeedback = (type, title, message) => {
+  feedbackType.value = type
+  feedbackTitle.value = title
+  feedbackMessage.value = message
+  showFeedbackModal.value = true
+}
+
 // Open booking modal
 const openBookingModal = (booking) => {
   selectedBooking.value = { ...booking }
@@ -248,14 +364,38 @@ const closeModal = () => {
   selectedBooking.value = null
 }
 
+// Confirm delete
+const confirmDelete = (booking) => {
+  selectedDeleteBooking.value = booking
+  showDeleteModal.value = true
+}
+
+// Confirm delete booking
+const confirmDeleteBooking = async () => {
+  if (!selectedDeleteBooking.value) return
+  
+  const result = await bookingsStore.deleteBooking(selectedDeleteBooking.value.id)
+  
+  if (result.success) {
+    showFeedback('success', 'Deleted!', `Booking #${selectedDeleteBooking.value.id} has been moved to trash.`)
+  } else {
+    showFeedback('error', 'Delete Failed', result.error || 'Failed to delete booking')
+  }
+  
+  showDeleteModal.value = false
+  selectedDeleteBooking.value = null
+}
+
 // Update booking status from dropdown
 const updateBookingStatus = async (bookingId, newStatus) => {
   const result = await bookingsStore.updateBookingStatus(bookingId, newStatus)
   
   if (result.success) {
     console.log(`✅ Status updated to ${newStatus}`)
+    showFeedback('success', 'Status Updated', `Booking status changed to ${newStatus}`)
   } else {
     console.error('❌ Failed to update status')
+    showFeedback('error', 'Update Failed', result.error || 'Failed to update status')
   }
 }
 
@@ -269,6 +409,9 @@ const handleStatusUpdate = async (data) => {
     if (selectedBooking.value && selectedBooking.value.id === data.bookingId) {
       selectedBooking.value.status = data.newStatus
     }
+    showFeedback('success', 'Status Updated', `Booking status changed to ${data.newStatus}`)
+  } else {
+    showFeedback('error', 'Update Failed', result.error || 'Failed to update status')
   }
 }
 
@@ -282,6 +425,9 @@ const handleSaveNotes = async (data) => {
     if (selectedBooking.value && selectedBooking.value.id === data.bookingId) {
       selectedBooking.value.notes = data.notes
     }
+    showFeedback('success', 'Notes Saved', 'Booking notes have been updated.')
+  } else {
+    showFeedback('error', 'Save Failed', result.error || 'Failed to save notes')
   }
 }
 
@@ -297,6 +443,31 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+/* Delete Button */
+.delete-btn {
+  background: #dc3545;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all var(--tr);
+}
+
+.delete-btn:hover {
+  background: #c82333;
+  transform: translateY(-1px);
+}
+
+.delete-btn svg {
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+}
+
 .bookings-view {
   width: 100%;
   min-height: 100%;
@@ -394,4 +565,89 @@ onMounted(async () => {
   fill: none;
   stroke-width: 2;
 }
+
+/* Feedback Modal Styles */
+.feedback-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.feedback-modal {
+  background: white;
+  border-radius: 12px;
+  padding: 30px;
+  max-width: 400px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.feedback-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  margin: 0 auto 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  font-weight: bold;
+}
+
+.feedback-icon.success {
+  background: #d4edda;
+  color: #28a745;
+}
+
+.feedback-icon.error {
+  background: #f8d7da;
+  color: #dc3545;
+}
+
+.feedback-icon.info {
+  background: #e3f2fd;
+  color: #3498db;
+}
+
+.feedback-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0 0 10px;
+  color: #333;
+}
+
+.feedback-message {
+  font-size: 14px;
+  color: #666;
+  margin: 0 0 20px;
+  line-height: 1.6;
+}
+
+.feedback-btn {
+  padding: 10px 30px;
+  background: #4a90e2;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.feedback-btn:hover {
+  background: #357abd;
+  transform: translateY(-1px);
+}
+
+
+
 </style>

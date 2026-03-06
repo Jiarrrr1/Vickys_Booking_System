@@ -44,12 +44,17 @@ updateFeedbackStatus = tryAndCatch(async (req, res) => {
     return res.status(200).json(response);
 });
 
-  // Delete feedback
-  deleteFeedback = tryAndCatch(async (req, res) => {
-    const { id } = req.params;
-    const response = await FeedbackServices.deleteFeedback(id);
-    return res.status(200).json(response);
-  });
+  // Soft delete feedback (move to trash)
+    deleteFeedback = tryAndCatch(async (req, res) => {
+        const { id } = req.params;
+        const { deletedBy } = req.body;  // Optional
+        
+        const response = await FeedbackServices.deleteFeedback(
+            id, 
+            deletedBy, 
+        );
+        return res.status(200).json(response);
+    });
 
   // Get only approved feedback (for client side)
   getApprovedFeedback = tryAndCatch(async (req, res) => {

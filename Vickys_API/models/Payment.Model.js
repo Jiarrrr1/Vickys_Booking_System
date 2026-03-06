@@ -31,15 +31,20 @@ const paymentSchema = new mongoose.Schema({
         type: Number,
         required: true,
     },
+    balance: {
+        type:Number,
+        required: true,
+        default: 0,
+    },
     paymentMethod: {
         type: String,
         required: true,
-        enum: ['GCash', 'Bank Transfer', 'Credit Card', 'Cash', 'Others'],
+        enum: ['GCash', 'Cash',],
         default: 'GCash'
     },
     referenceNumber: {
         type: String,
-        required: true,
+        default: "",
     },
     paymentType: {
         type: String,
@@ -50,8 +55,7 @@ const paymentSchema = new mongoose.Schema({
     status: {
         type: String,
         required: true,
-        enum: ['Pending', 'Paid', 'Failed'],
-        default: 'Pending'
+        default: 'Paid'
     },
     paymentDate: {
         type: String,
@@ -60,6 +64,16 @@ const paymentSchema = new mongoose.Schema({
     notes: {
         type: String,
         default: "",
+    },
+     // Soft delete flag
+    isDeleted: {
+        type: Boolean,
+        default: false,
+        index: true  // For faster queries
+    },
+    deletedAt: {
+        type: Date,
+        default: null
     },
     createdAt: {
         type: String,
@@ -70,6 +84,9 @@ const paymentSchema = new mongoose.Schema({
         default: getDateValue(),
     },
 });
+
+paymentSchema.index({ isDeleted: 1, status: 1 });
+
 
 function getDateValue() {
     const date = new Date();

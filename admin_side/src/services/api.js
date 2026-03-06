@@ -8,13 +8,14 @@ import router from '@/router'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1'
 
-const adminClient = axios.create({
+export const adminClient = axios.create({  // Make sure to export this
   baseURL: API_BASE_URL,
-  timeout: 10000,
+  // timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json'
-  }
+  },
+  withCredentials: true
 })
 
 // ==========================================
@@ -27,6 +28,7 @@ adminClient.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
+    console.log(`🚀 ${config.method.toUpperCase()} ${config.baseURL}${config.url}`)
     return config
   },
   (error) => Promise.reject(error)
@@ -37,10 +39,19 @@ adminClient.interceptors.request.use(
 // ==========================================
 
 adminClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    console.log('✅ Response:', response.status, response.data)
+    return response
+  },
   (error) => {
+    console.error('❌ Error:', {
+      url: error.config?.url,
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message
+    })
+    
     if (error.response?.status === 401) {
-      // Token expired or invalid
       localStorage.removeItem('adminToken')
       localStorage.removeItem('adminUser')
       router.push('/admin/login')
@@ -54,17 +65,10 @@ adminClient.interceptors.response.use(
 // ==========================================
 
 export const adminAuth = {
-  // POST /admin/login
-  login: (credentials) => adminClient.post('/login', credentials),
-  
-  // POST /admin/logout
-  logout: () => adminClient.post('/logout'),
-  
-  // GET /admin/verify
-  verify: () => adminClient.get('/verify'),
-  
-  // POST /admin/change-password
-  changePassword: (data) => adminClient.post('/change-password', data)
+  login: (credentials) => adminClient.post('/admin/login', credentials),
+  logout: () => adminClient.post('/admin/logout'),
+  verify: () => adminClient.get('/admin/verify'),
+  changePassword: (data) => adminClient.post('/admin/change-password', data)
 }
 
 // ==========================================
@@ -72,11 +76,8 @@ export const adminAuth = {
 // ==========================================
 
 export const adminProfile = {
-  // GET /admin/profile
-  getProfile: () => adminClient.get('/profile'),
-  
-  // PUT /admin/profile
-  updateProfile: (data) => adminClient.put('/profile', data)
+  getProfile: () => adminClient.get('/admin/profile'),
+  updateProfile: (data) => adminClient.put('/admin/profile', data)
 }
 
 // ==========================================
@@ -84,20 +85,27 @@ export const adminProfile = {
 // ==========================================
 
 export const adminManagement = {
-  // POST /admin/createAdmin
-  create: (data) => adminClient.post('/createAdmin', data),
-  
-  // GET /admin/getAlladmins
-  getAll: () => adminClient.get('/getAlladmins'),
-  
-  // GET /admin/getAdmin/:id
-  getById: (id) => adminClient.get(`/getAdmin/${id}`),
-  
-  // PUT /admin/updateAdmins/:id
-  update: (id, data) => adminClient.put(`/updateAdmins/${id}`, data),
-  
-  // DELETE /admin/deleteAdmins/:id
-  delete: (id) => adminClient.delete(`/deleteAdmins/${id}`)
+  create: (data) => adminClient.post('/admin/createAdmin', data),
+  getAll: () => adminClient.get('/admin/getAlladmins'),
+  getById: (id) => adminClient.get(`/admin/getAdmin/${id}`),
+  update: (id, data) => adminClient.put(`/admin/updateAdmins/${id}`, data),
+  delete: (id) => adminClient.delete(`/admin/deleteAdmins/${id}`)
+}
+
+// ==========================================
+// PAYMENTS API
+// ==========================================
+
+export const paymentsAPI = {
+  getAll: (params) => adminClient.get('/admin/getAllPayments', { params }),
+  getById: (id) => adminClient.get(`/admin/getPayment/${id}`),
+  getByBooking: (reservationId) => adminClient.get(`/admin/getPaymentsByReservation/${reservationId}`),
+  create: (id, data) => adminClient.post(`/admin/createPayment/${id}`, data),
+  updateStatus: (id, status) => adminClient.patch(`/admin/updatePaymentStatus/${id}`, { status }),
+  update: (id, data) => adminClient.put(`/admin/updatePayment/${id}`, data),
+  delete: (id) => adminClient.delete(`/admin/deletePayment/${id}`),
+  getStats: () => adminClient.get('/admin/getPaymentStats'),
+  getByDateRange: (params) => adminClient.get('/admin/getPaymentsByDateRange', { params })
 }
 
 // ==========================================
@@ -108,5 +116,6 @@ export default {
   auth: adminAuth,
   profile: adminProfile,
   management: adminManagement,
+  payments: paymentsAPI,  // ✅ Now included
   client: adminClient
 }

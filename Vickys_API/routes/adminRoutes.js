@@ -21,4 +21,7 @@ router.get('/getAdmin/:id', verifyAdminToken, AdminController.getAdminById);
 router.put('/updateAdmins/:id', verifyAdminToken, AdminController.updateAdmin);
 router.delete('/deleteAdmins/:id', verifyAdminToken, AdminController.deleteAdmin);
 
+
+// In routes/adminRoutes.js
+
 module.exports = router;

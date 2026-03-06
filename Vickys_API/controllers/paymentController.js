@@ -5,9 +5,7 @@ const tryAndCatch = require("../utils/tryAndCatch");
 class PaymentController {
     // Create new payment
     createPayment = tryAndCatch(async (req, res) => {
-        console.log('Received request to create payment:', req.body);
         const payload = req.body;
-        console.log('Response:', payload);
         const { id } = req.params;    
         const response = await PaymentServices.createPayment(payload, id);
         return res.status(response.success ? 201 : 400).json(response);

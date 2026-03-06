@@ -1,6 +1,8 @@
 const Feedback = require('../models/Feedback.Model')
 const generateId = require("../utils/generateId");
 
+const DeletedItemsService = require('../services/deletedItemsServices');
+
 class FeedbackManagement {
     async createFeedback(payload){
         try {
@@ -31,10 +33,12 @@ class FeedbackManagement {
         }
     }
 
-    // Get all feedback (for admin)
+     // Get all feedback (EXCLUDE deleted)
     async getAllFeedback() {
         try {
-            const feedbacks = await Feedback.find().sort({ createdAt: -1 });
+            const feedbacks = await Feedback
+                .find({ isDeleted: { $ne: true } })  // Exclude deleted
+                .sort({ createdAt: -1 });
             return {
                 success: true,
                 data: feedbacks
@@ -120,14 +124,16 @@ class FeedbackManagement {
     }
 }
 
-    // Delete feedback
-    async deleteFeedback(id) {
+// Soft delete feedback (move to trash)
+    async deleteFeedback(id, deletedBy = null) {
         try {
-            await Feedback.findOneAndDelete({ feedBackId: id });
-            return {
-                success: true,
-                message: "Feedback deleted successfully"
-            };
+            const result = await DeletedItemsService.moveToTrash(
+                'feedback',
+                id,
+                deletedBy,
+            );
+            
+            return result;
         } catch (error) {
             console.error('Error deleting feedback:', error);
             throw error;

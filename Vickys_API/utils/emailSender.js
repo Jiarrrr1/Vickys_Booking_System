@@ -1,32 +1,43 @@
 const nodemailer = require('nodemailer');
 
 class EmailSender {
-    constructor() {
-        // Determine secure setting based on port
-        const port = parseInt(process.env.EMAIL_PORT) || 587;
-        const isSecure = port === 465; // true for port 465, false for others
-        
-        this.transporter = nodemailer.createTransport({
-            host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-            port: port,
-            secure: isSecure, // true for 465, false for other ports
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASS
-            },
-            // Add timeouts to prevent hanging
-            connectionTimeout: 10000, // 10 seconds
-            greetingTimeout: 10000,
-            socketTimeout: 15000,
-            
-            // Add this for better error messages
-            debug: process.env.NODE_ENV === 'development',
-            logger: process.env.NODE_ENV === 'development'
-        });
+ // In emailSender.js constructor
+constructor() {
+    // Gmail SMTP IP addresses (as of 2024)
+    const gmailIPs = [
+        '64.233.171.108',  // smtp.gmail.com IP
+        '142.250.153.108', // Alternative IP
+        '172.217.194.108'  // Another alternative
+    ];
+    
+    // Use a random IP from the list
+    const randomIP = gmailIPs[Math.floor(Math.random() * gmailIPs.length)];
+    
+    this.transporter = nodemailer.createTransport({
+        host: randomIP, // Use IP instead of hostname
+        port: 587,
+        secure: false,
+        auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS
+        },
+        // Add TLS options
+        tls: {
+            servername: 'smtp.gmail.com', // Still need servername for TLS
+            rejectUnauthorized: true
+        },
+        connectionTimeout: 5000,
+        greetingTimeout: 5000,
+        socketTimeout: 5000,
+        debug: false,
+        logger: false
+    });
+}
 
-        // Test connection on initialization
-        this.verifyConnection();
-    }
+// Remove or comment out verifyConnection or make it optional
+async verifyConnection() {
+    // Only verify if needed, don't call in constructor
+}
 
     async verifyConnection() {
         try {

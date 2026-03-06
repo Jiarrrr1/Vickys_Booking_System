@@ -1,39 +1,18 @@
 // src/services/auth.js
 import { reactive, computed } from 'vue'
-import axios from 'axios'
-import { adminAuth } from './api' // Import your admin API
-
-// API Base URL - change to your backend port 3001
-const API_BASE_URL = '/api/v1' // Use relative path so proxy works
-
-// Create axios instance
-const apiClient = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json'
-  }
-})
-
-// Add token to requests
-apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem('adminToken') // Use adminToken instead of token
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
-  }
-  return config
-})
+import { adminAuth } from './api'
 
 // Reactive state
 const state = reactive({
-  user: null,
-  token: localStorage.getItem('adminToken') || null, // Use adminToken
+  user: JSON.parse(localStorage.getItem('adminUser') || 'null'),
+  token: localStorage.getItem('adminToken') || null,
   isLoading: false,
   error: null
 })
 
 // Computed properties
 const isAuthenticated = computed(() => !!state.token)
-const userName = computed(() => state.user?.fullName || 'Admin') // fullName from your schema
+const userName = computed(() => state.user?.fullName || 'Admin')
 const userRole = computed(() => 'Admin')
 const userInitial = computed(() => state.user?.fullName?.charAt(0).toUpperCase() || 'A')
 
@@ -56,18 +35,27 @@ const authService = {
     state.error = null
 
     try {
-      // Use your admin login endpoint
-      const response = await apiClient.post('/admin/login', {
-        email: credentials.username, // Map username to email
+      console.log('📤 Attempting login with:', credentials.username)
+      
+      const response = await adminAuth.login({
+        email: credentials.username,
         password: credentials.password
       })
       
       console.log('Login response:', response.data)
       
-      // Your API returns { success, data: { admin, token } }
+      // Your API returns { success: true, data: { admin, token } }
+      if (!response.data.success) {
+        throw new Error(response.data.message || 'Login failed')
+      }
+      
       const { token, admin } = response.data.data
       
-      // Store token and user data
+      if (!token) {
+        throw new Error('No token received from server')
+      }
+      
+      // Store token and user
       state.token = token
       state.user = admin
       
@@ -77,10 +65,29 @@ const authService = {
       
       console.log('✅ Login successful:', admin.fullName)
       return { success: true }
+      
     } catch (error) {
-      state.error = error.response?.data?.message || 'Login failed'
-      console.error('❌ Login error:', error)
-      return { success: false, error: state.error }
+      let errorMessage = 'Login failed'
+      
+      if (error.response) {
+        // Server responded with error
+        errorMessage = error.response.data?.message || 
+                      error.response.data?.error || 
+                      `Server error: ${error.response.status}`
+        console.error('Server error:', error.response.data)
+      } else if (error.request) {
+        // No response received
+        errorMessage = 'Cannot connect to server. Make sure backend is running on port 3001'
+        console.error('No response received')
+      } else {
+        // Request setup error
+        errorMessage = error.message
+        console.error('Request error:', error.message)
+      }
+      
+      state.error = errorMessage
+      return { success: false, error: errorMessage }
+      
     } finally {
       state.isLoading = false
     }
@@ -92,9 +99,7 @@ const authService = {
   async logout() {
     try {
       if (state.token) {
-        await apiClient.post('/admin/logout', {}, {
-          headers: { Authorization: `Bearer ${state.token}` }
-        })
+        await adminAuth.logout()
       }
     } catch (error) {
       console.error('Logout error:', error)
@@ -114,12 +119,11 @@ const authService = {
     if (!state.token) return false
 
     try {
-      const response = await apiClient.get('/admin/verify', {
-        headers: { Authorization: `Bearer ${state.token}` }
-      })
+      const response = await adminAuth.verify()
       
       if (response.data.success) {
         state.user = response.data.data
+        localStorage.setItem('adminUser', JSON.stringify(response.data.data))
         return true
       }
       return false
@@ -135,8 +139,9 @@ const authService = {
    */
   async initializeAuth() {
     if (state.token) {
-      await this.verifyToken()
+      return await this.verifyToken()
     }
+    return false
   },
 
   reset() {

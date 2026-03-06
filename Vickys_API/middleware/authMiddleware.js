@@ -31,6 +31,16 @@ const verifyAdminToken = async (req, res, next) => {
       message: "Authentication failed"
     });
   }
+}
+
+const checkAdmin = async (req) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1] || req.cookies?.adminToken;
+    return !!token; // Returns true if token exists, false otherwise
+  } catch (error) {
+    console.log('Error checking admin token:', error);
+    return false;
+  }
 };
 
-module.exports = { verifyAdminToken };
+module.exports = { verifyAdminToken, checkAdmin };

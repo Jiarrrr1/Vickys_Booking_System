@@ -1,9 +1,9 @@
+// reservationModel.js
 const mongoose = require('mongoose');
-const { notify } = require('../routes/reservationRoutes');
 
 const reservationSchema = new mongoose.Schema({
     reservationId: {
-        type: String, // Changed from Number to String for alphanumeric IDs
+        type: String,
         required: true,
         unique: true,
     },
@@ -16,7 +16,7 @@ const reservationSchema = new mongoose.Schema({
         required: true,
     },
     phoneNumber: {
-        type: String, // Changed from Number to String to preserve leading zeros
+        type: String,
         required: true,
     },
     checkIn: {
@@ -35,14 +35,21 @@ const reservationSchema = new mongoose.Schema({
         type: String,
         default: "",
     },
-    paymentMethod: {
+    // Change this to store both payment type and method
+    paymentType: {
         type: String,
         required: true,
-        enum: ['down', 'full'], // Add validation for payment methods
-        default: 'down'
+        enum: ['Downpayment', 'Full Payment', 'Balance Payment'],
+        default: 'Down'
+    },
+    paymentMethod: { // 'gcash' or 'cash'
+        type: String,
+        required: true,
+        enum: ['GCash', 'Cash'],
+        default: 'Gcash'
     },
     roomId: {
-        type: Number,
+        type: String,
         required: true
     },
     roomName: {
@@ -53,7 +60,6 @@ const reservationSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-    // Additional fields from frontend
     referenceNumber: {
         type: String,
         default: ""
@@ -78,6 +84,16 @@ const reservationSchema = new mongoose.Schema({
         type: String,
         default: "Pending"
     },
+    isDeleted: {
+        type: Boolean,
+        default: false,
+        index: true
+    },
+    deletedAt: {
+        type: Date,
+        default: null,
+        index: true
+    },
     createdAt: {
         type: String,
         default: getDateValue(),
@@ -96,8 +112,6 @@ function getDateValue() {
     const year = date.getFullYear();
     return `${month} ${day} ${year}`;
 }
-
-
 
 const Reservation = mongoose.model('Reservation', reservationSchema);
 module.exports = Reservation;
