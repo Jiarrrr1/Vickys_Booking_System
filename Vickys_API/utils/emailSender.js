@@ -2,42 +2,28 @@ const nodemailer = require('nodemailer');
 
 class EmailSender {
  // In emailSender.js constructor
-constructor() {
-    // Gmail SMTP IP addresses (as of 2024)
-    const gmailIPs = [
-        '64.233.171.108',  // smtp.gmail.com IP
-        '142.250.153.108', // Alternative IP
-        '172.217.194.108'  // Another alternative
-    ];
-    
-    // Use a random IP from the list
-    const randomIP = gmailIPs[Math.floor(Math.random() * gmailIPs.length)];
-    
+constructor() {    
     this.transporter = nodemailer.createTransport({
-        host: randomIP, // Use IP instead of hostname
-        port: 587,
+        host: process.env.EMAIL_HOST || 'smtp.gmail.com' ,
+        port: process.env.EMAIL_PORT || 587,
         secure: false,
         auth: {
             user: process.env.EMAIL_USER,
             pass: process.env.EMAIL_PASS
         },
-        // Add TLS options
         tls: {
-            servername: 'smtp.gmail.com', // Still need servername for TLS
+            servername: 'smtp.gmail.com',
             rejectUnauthorized: true
         },
-        connectionTimeout: 5000,
-        greetingTimeout: 5000,
-        socketTimeout: 5000,
+        connectionTimeout: 30000,
+        greetingTimeout: 30000,
+        socketTimeout: 30000,
         debug: false,
         logger: false
     });
 }
 
-// Remove or comment out verifyConnection or make it optional
-async verifyConnection() {
-    // Only verify if needed, don't call in constructor
-}
+
 
     async verifyConnection() {
         try {
@@ -60,7 +46,7 @@ async verifyConnection() {
             // Email to company
             const companyMailOptions = {
                 from: `"Vicky's Resort Reservations" <${process.env.EMAIL_USER}>`,
-                to: process.env.COMPANY_EMAIL || process.env.EMAIL_USER, // Send to yourself if company email not set
+                to: process.env.COMPANY_EMAIL || process.env.EMAIL_USER,
                 subject: `📅 New Reservation #${reservationData.reservationId} - ${reservationData.fullName}`,
                 html: this.generateCompanyEmailHTML(reservationData),
                 // Add headers for better email tracking
@@ -99,7 +85,6 @@ async verifyConnection() {
         } catch (error) {
             console.error('❌ Email sending failed:', error);
             
-            // Provide more helpful error messages
             if (error.code === 'ECONNECTION') {
                 console.error('   - Check your internet connection');
                 console.error('   - Verify EMAIL_HOST is correct');
@@ -115,7 +100,6 @@ async verifyConnection() {
         }
     }
 
-    // Add a method to send just one email (for testing)
     async sendTestEmail(toEmail) {
         try {
             const testMailOptions = {
@@ -161,6 +145,378 @@ async verifyConnection() {
             throw error;
         }
     }
+
+
+async sendConfirmationEmail(toEmail, reservationData) {
+    try {
+        console.log(`📧 Sending confirmation email for reservation #${reservationData.reservationId}...`);
+        
+        if (!toEmail) {
+            throw new Error('Recipient email is required');
+        }
+
+        // Email to customer only (confirmation)
+        const userMailOptions = {
+            from: `"Vicky's Resort" <${process.env.EMAIL_USER}>`,
+            to: toEmail,
+            subject: `✅ Reservation Confirmed #${reservationData.reservationId}`,
+            html: this.generateConfirmationEmailHTML(reservationData),
+            headers: {
+                'X-Reservation-ID': reservationData.reservationId,
+                'X-Priority': '1'
+            }
+        };
+
+        const result = await this.transporter.sendMail(userMailOptions);
+        console.log(`✅ Confirmation email sent: ${result.messageId}`);
+
+        return {
+            success: true,
+            messageId: result.messageId
+        };
+    } catch (error) {
+        console.error('❌ Confirmation email failed:', error);
+        throw error;
+    }
+}
+
+generateConfirmationEmailHTML(reservation) {
+    // Format dates
+    const checkInDate = new Date(reservation.checkIn).toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+    
+    const checkOutDate = new Date(reservation.checkOut).toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+
+    // Calculate number of nights
+    const nights = Math.ceil((new Date(reservation.checkOut) - new Date(reservation.checkIn)) / (1000 * 60 * 60 * 24));
+
+    return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body { 
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+                line-height: 1.6; 
+                color: #333; 
+                margin: 0;
+                padding: 0;
+            }
+            .container { 
+                max-width: 600px; 
+                margin: 0 auto; 
+                background-color: #f9f9f9;
+                border: 1px solid #e0e0e0;
+            }
+            .header { 
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                color: white; 
+                padding: 40px; 
+                text-align: center; 
+            }
+            .header h1 {
+                margin: 0;
+                font-size: 28px;
+                font-weight: 600;
+            }
+            .header p {
+                margin: 10px 0 0;
+                opacity: 0.9;
+            }
+            .content { 
+                background: white; 
+                padding: 40px; 
+            }
+            .confirmation-badge {
+                text-align: center;
+                margin-bottom: 30px;
+            }
+            .confirmation-badge span {
+                background: #27ae60;
+                color: white;
+                padding: 8px 24px;
+                border-radius: 30px;
+                font-size: 14px;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+            }
+            .greeting {
+                font-size: 18px;
+                margin-bottom: 20px;
+            }
+            .greeting strong {
+                color: #667eea;
+            }
+            .reservation-card {
+                background: #f8fafc;
+                border: 1px solid #e2e8f0;
+                border-radius: 12px;
+                padding: 24px;
+                margin: 30px 0;
+            }
+            .reservation-id {
+                text-align: center;
+                font-size: 24px;
+                font-weight: 700;
+                color: #667eea;
+                letter-spacing: 2px;
+                margin-bottom: 20px;
+                padding-bottom: 20px;
+                border-bottom: 2px dashed #e2e8f0;
+            }
+            .details-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 20px;
+                margin-bottom: 20px;
+            }
+            .detail-item {
+                text-align: center;
+                padding: 15px;
+                background: white;
+                border-radius: 8px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            }
+            .detail-label {
+                font-size: 12px;
+                color: #718096;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                margin-bottom: 5px;
+            }
+            .detail-value {
+                font-size: 16px;
+                font-weight: 600;
+                color: #2d3748;
+            }
+            .room-info {
+                background: #ebf8ff;
+                border: 1px solid #bee3f8;
+                border-radius: 8px;
+                padding: 20px;
+                margin: 20px 0;
+                display: flex;
+                align-items: center;
+                gap: 15px;
+            }
+            .room-icon {
+                font-size: 40px;
+            }
+            .room-details h3 {
+                margin: 0 0 5px;
+                color: #2c5282;
+            }
+            .room-details p {
+                margin: 0;
+                color: #2b6cb0;
+            }
+            .payment-summary {
+                background: #f0fff4;
+                border: 1px solid #9ae6b4;
+                border-radius: 8px;
+                padding: 20px;
+                margin: 20px 0;
+            }
+            .payment-row {
+                display: flex;
+                justify-content: space-between;
+                padding: 10px 0;
+                border-bottom: 1px solid #c6f6d5;
+            }
+            .payment-row:last-child {
+                border-bottom: none;
+            }
+            .payment-row.total {
+                font-size: 18px;
+                font-weight: 700;
+                color: #276749;
+            }
+            .status-badge {
+                display: inline-block;
+                padding: 4px 12px;
+                background: #fef3c7;
+                color: #92400e;
+                border-radius: 20px;
+                font-size: 12px;
+                font-weight: 600;
+                text-transform: uppercase;
+            }
+            .message-box {
+                background: #fff3cd;
+                border-left: 4px solid #ffc107;
+                padding: 20px;
+                margin: 20px 0;
+                border-radius: 4px;
+            }
+            .contact-info {
+                background: #f8f9fa;
+                padding: 30px;
+                border-radius: 8px;
+                margin: 30px 0;
+                text-align: center;
+            }
+            .contact-info h4 {
+                color: #2d3748;
+                margin: 0 0 15px;
+            }
+            .contact-details {
+                display: flex;
+                justify-content: center;
+                gap: 30px;
+                flex-wrap: wrap;
+            }
+            .contact-item {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                color: #4a5568;
+            }
+            .footer {
+                text-align: center;
+                margin-top: 30px;
+                padding-top: 20px;
+                border-top: 1px solid #e2e8f0;
+                color: #a0aec0;
+                font-size: 12px;
+            }
+            .button {
+                display: inline-block;
+                padding: 12px 30px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                text-decoration: none;
+                border-radius: 8px;
+                font-weight: 600;
+                margin: 20px 0;
+            }
+            .weather-info {
+                background: #f0f9ff;
+                padding: 15px;
+                border-radius: 8px;
+                font-size: 13px;
+                color: #0369a1;
+                margin-top: 20px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>🎉 Your Reservation is Confirmed!</h1>
+                <p>We're excited to welcome you to Vicky's Resort</p>
+            </div>
+            
+            <div class="content">
+                <div class="confirmation-badge">
+                    <span>✓ CONFIRMED</span>
+                </div>
+
+                <div class="greeting">
+                    Dear <strong>${reservation.fullName}</strong>,
+                </div>
+                
+                <p>Great news! Your reservation has been confirmed. Here are your booking details:</p>
+
+                <div class="reservation-card">
+                    <div class="reservation-id">
+                        #${reservation.reservationId}
+                    </div>
+
+                    <div class="details-grid">
+                        <div class="detail-item">
+                            <div class="detail-label">Check-in</div>
+                            <div class="detail-value">${checkInDate}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Check-out</div>
+                            <div class="detail-value">${checkOutDate}</div>
+                        </div>
+                    </div>
+
+                    <div class="room-info">
+                        <div class="room-icon">🏨</div>
+                        <div class="room-details">
+                            <h3>${reservation.roomName}</h3>
+                            <p>${nights} night${nights > 1 ? 's' : ''} • ${reservation.guestQuantity} guest${reservation.guestQuantity > 1 ? 's' : ''}</p>
+                        </div>
+                    </div>
+
+                    <div class="payment-summary">
+                        <div class="payment-row">
+                            <span>Room Rate:</span>
+                            <span>₱${parseFloat(reservation.totalAmount).toLocaleString()}</span>
+                        </div>
+                        <div class="payment-row">
+                            <span>Payment Method:</span>
+                            <span>${reservation.paymentMethod || 'To be paid at check-in'}</span>
+                        </div>
+                        <div class="payment-row total">
+                            <span>Total Amount:</span>
+                            <span>₱${parseFloat(reservation.totalAmount).toLocaleString()}</span>
+                        </div>
+                    </div>
+
+                    <div style="text-align: center;">
+                        <span class="status-badge">${reservation.paymentType || 'Standard'}</span>
+                    </div>
+                </div>
+
+                ${reservation.request ? `
+                <div class="message-box">
+                    <strong>📝 Your Special Request:</strong>
+                    <p style="margin: 10px 0 0;">${reservation.request}</p>
+                    <p style="margin: 5px 0 0; font-size: 12px;">We'll do our best to accommodate this request.</p>
+                </div>
+                ` : ''}
+
+                <div style="text-align: center;">
+                    <a href="#" class="button">View Your Booking</a>
+                </div>
+
+                <div class="contact-info">
+                    <h4>📞 Need Help?</h4>
+                    <div class="contact-details">
+                        <div class="contact-item">
+                            <span>📧</span>
+                            <span>${process.env.COMPANY_EMAIL || 'reservations@vickysresort.com'}</span>
+                        </div>
+                        <div class="contact-item">
+                            <span>📞</span>
+                            <span>${process.env.COMPANY_PHONE || '+63 (123) 456-7890'}</span>
+                        </div>
+                    </div>
+                    <p style="margin: 15px 0 0; font-size: 13px;">
+                        Office Hours: ${process.env.BUSINESS_HOURS || 'Monday - Saturday, 9:00 AM - 6:00 PM'}
+                    </p>
+                </div>
+
+                <div style="margin: 30px 0; text-align: center; color: #4a5568;">
+                    <p>We look forward to providing you with a memorable stay!</p>
+                    <p style="font-size: 13px;">Warm regards,<br><strong>The Vicky's Resort Team</strong></p>
+                </div>
+
+                <div class="footer">
+                    <p>This is your official reservation confirmation.</p>
+                    <p>© ${new Date().getFullYear()} Vicky's Resort. All rights reserved.</p>
+                    <p>${process.env.COMPANY_ADDRESS || '123 Beach Road, Paradise Island'}</p>
+                </div>
+            </div>
+        </div>
+    </body>
+    </html>
+    `;
+}
+
 
     generateCompanyEmailHTML(reservation) {
         // Format dates

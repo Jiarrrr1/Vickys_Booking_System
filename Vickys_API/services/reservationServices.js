@@ -146,7 +146,17 @@ class ReservationServices {
         { new: true, runValidators: true }
       );
 
-      if (payload === 'Confirmed')
+      if (payload === 'Confirmed'){
+        // Send email (non-blocking)
+        setTimeout(async () => {
+          try {
+            await emailSender.sendConfirmationEmail(updatedReservation.email, updatedReservation);
+            console.log(`📧 Confirmation email sent for #${updatedReservation.reservationId}`);
+          } catch (emailError) {
+            console.error("Confirmation email sending failed:", emailError.message);
+          }
+        }, 100);
+      }
 
       if (updatedReservation) {
         await updatedReservation.save();
