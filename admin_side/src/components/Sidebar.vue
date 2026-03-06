@@ -92,7 +92,7 @@
           <path d="M1 10h22" />
         </svg>
         Trash
-                <span v-if="paymentsCount > 0" class="snbadge">{{ paymentsCount }}</span>
+                <span v-if="trashCount > 0" class="snbadge">{{ trashCount  }}</span>
 
       </router-link>
 
@@ -120,23 +120,22 @@
     </nav>
 
     <!-- Logged-in User Chip -->
-    <div class="sfooter">
-  <div class="uchip" @click="goToProfile">
-    <div class="uavatar">{{ userInitial }}</div>
-    <div>
+<div class="sfooter">
+  <div class="uchip">
+    <div class="uavatar" @click="goToProfile">{{ userInitial }}</div>
+    <div class="user-info">
       <div class="uname">{{ userName }}</div>
       <div class="urole">{{ userRole }}</div>
     </div>
+    <!-- Logout button - now properly positioned -->
+    <button class="logout-btn" @click="handleLogout" title="Logout">
+      <svg viewBox="0 0 24 24" width="18" height="18">
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+        <polyline points="16 17 21 12 16 7" />
+        <line x1="21" y1="12" x2="9" y2="12" />
+      </svg>
+    </button>
   </div>
-  
-  <!-- Logout button -->
-  <button class="logout-btn" @click="handleLogout" title="Logout">
-    <svg viewBox="0 0 24 24" width="18" height="18">
-      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-      <polyline points="16 17 21 12 16 7" />
-      <line x1="21" y1="12" x2="9" y2="12" />
-    </svg>
-  </button>
 </div>
   </aside>
 </template>
@@ -148,6 +147,7 @@ import authService from '@/services/auth'
 import bookingsService from '@/services/bookingService'
 import { useFeedbacksService } from '@/services/feedbackService'
 import paymentsService from '@/services/paymentsService'
+import { useDeletedItemsService } from '@/services/deletedItemsService'
 
 const route = useRoute()
 const router = useRouter()
@@ -163,11 +163,20 @@ const userInitial = computed(() => {
   return name ? name.charAt(0).toUpperCase() : 'A'
 })
 const feedbacksService = useFeedbacksService()
+const deletedItemsService = useDeletedItemsService()
+
+// Call the fetch function (don't assign to variable)
+deletedItemsService.fetchDeletedItems()
+
+// Use the reactive state directly
+console.log('deleted:', deletedItemsService.deletedItems.value)
+
 
 // Bookings count for badge
 const bookingsCount = computed(() => bookingsService.totalBookings || 0)
 const feedbacksCount = computed(() => feedbacksService.totalFeedbacks || 0)
 const paymentsCount = computed(() => paymentsService.totalPayments || 0)
+const trashCount = computed(() => deletedItemsService.deletedItems.value.length || 0)
 // Go to profile page when clicking user chip
 const goToProfile = () => {
   router.push('/admin/profile')
@@ -181,15 +190,6 @@ const handleLogout = async () => {
 </script>
 
 <style scoped>
-/* Add cursor pointer to user chip */
-.uchip {
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.uchip:hover {
-  background-color: var(--sand-dk, #e0d6c8);
-}
 
 /* Active route styling */
 .sitem.active {
@@ -213,22 +213,5 @@ const handleLogout = async () => {
   margin-left: auto;
 }
 
-.logout-btn {
-  background-color: transparent;
-  margin: 2rem;
-  border: none;
-  cursor: pointer;
-  padding: 8px;
-  border-radius: 4px;
-  color: var(--t3);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-}
 
-.logout-btn:hover {
-  background-color: #d3d3d3;
-  color: #da1919;
-}
 </style>
