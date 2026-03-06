@@ -353,7 +353,7 @@ onMounted(() => {
 }
 
 .export-sidebar-btn:hover {
-  background: var(--gold);
+  background: var(--gold-light, #f5e6d3);
   color: #000;
   border-color: var(--gold);
 }
