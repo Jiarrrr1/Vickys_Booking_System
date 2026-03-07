@@ -150,7 +150,7 @@
       :show="showDeleteModal"
       :title="`Delete ${capitalize(selectedItem?.itemType || 'Item')} Permanently?`"
       :message="`This action cannot be undone. The ${selectedItem?.itemType} will be permanently deleted.`"
-      confirm-text="Delete Forever"
+      confirm-text="Delete Permanently"
       type="danger"
       @confirm="confirmPermanentDelete"
       @close="showDeleteModal = false"

@@ -2,6 +2,22 @@
 import { reactive, computed, toRefs } from 'vue'
 import { paymentsAPI } from './api'
 
+// ==========================================
+// LOCALSTORAGE CACHE
+// ==========================================
+const CACHE_KEY = 'payments_cache'
+
+// Load from cache on startup
+try {
+  const cached = localStorage.getItem(CACHE_KEY)
+  if (cached) {
+    state.payments = JSON.parse(cached)
+    console.log('📦 Loaded', state.payments.length, 'payments from cache')
+  }
+} catch (e) {
+  console.log('No cache found')
+}
+
 // Create a reactive state
 const state = reactive({
   payments: [],
@@ -10,11 +26,23 @@ const state = reactive({
   searchQuery: ''
 })
 
+
+
 class PaymentsService {
   constructor() {
     // Expose reactive state
     this.state = state
   }
+
+  // Add this method inside the PaymentsService class
+saveToCache() {
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify(state.payments))
+    console.log('✅ Payments cached')
+  } catch (e) {
+    console.error('Failed to save to cache')
+  }
+}
 
   // ==========================================
   // API CALLS
@@ -40,6 +68,8 @@ class PaymentsService {
         
         // Update reactive state
         state.payments = transformed
+        this.saveToCache() // <-- ADD THIS
+
         console.log('State payments updated:', state.payments.length)
       } else {
         console.error('API returned success: false', response.data.message)
@@ -103,6 +133,7 @@ class PaymentsService {
       if (response.data.success) {
         const newPayment = this.transformPayment(response.data.data)
         state.payments.unshift(newPayment)
+this.saveToCache() // <-- ADD THIS
         return { success: true, data: newPayment }
       }
       return { success: false, error: response.data.message }
@@ -126,6 +157,8 @@ class PaymentsService {
         const index = state.payments.findIndex(p => p.paymentId === id)
         if (index !== -1) {
           state.payments[index].status = status
+          this.saveToCache() // <-- ADD THIS
+
           Object.assign(state.payments[index], this.transformPayment(response.data.data))
         }
         return { success: true, data: response.data.data }
@@ -149,6 +182,7 @@ class PaymentsService {
         const index = state.payments.findIndex(p => p.paymentId === id)
         if (index !== -1) {
           state.payments[index] = this.transformPayment(response.data.data)
+          this.saveToCache() // <-- ADD THIS
         }
         return { success: true, data: response.data.data }
       }
@@ -167,6 +201,7 @@ class PaymentsService {
       if (response.data.success) {
         // Remove from local state
         state.payments = state.payments.filter(p => p.paymentId !== id)
+        this.saveToCache() // <-- ADD THIS
         return { success: true, message: response.data.message }
       }
       return { success: false, error: response.data.message }

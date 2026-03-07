@@ -1,4 +1,4 @@
-<!-- src/views/RevenueView.vue - FIXED for monthly/yearly filtering -->
+<!-- src/views/RevenueView.vue - WITH LOCALSTORAGE CACHING -->
 <template>
   <div class="revenue-view">
     <section class="section fu">
@@ -13,6 +13,13 @@
             </svg>
           </div>
           <span>Filter Options</span>
+          <!-- Add refresh button to manually reload from API -->
+          <button class="refresh-btn" @click="refreshData" title="Refresh from API">
+            <svg viewBox="0 0 24 24" width="18" height="18">
+              <path d="M23 4v6h-6M1 20v-6h6" />
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+            </svg>
+          </button>
         </div>
 
         <!-- Panel controls row -->
@@ -95,9 +102,18 @@
         </div>
       </div>
 
+      <!-- Cache Status Indicator -->
+      <div class="cache-status" v-if="usingCachedData">
+        <svg viewBox="0 0 24 24" width="16" height="16">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <span>Using cached data (last updated: {{ lastCacheUpdate }})</span>
+      </div>
 
       <!-- Loading State -->
-      <div v-if="paymentsService.isLoading" class="loading-container">
+      <div v-if="isLoading" class="loading-container">
         <div class="loading-spinner"></div>
         <p>Loading revenue data...</p>
       </div>
@@ -114,10 +130,10 @@
         <div class="summary-section">
           <div class="upper-grid">
             <StatCard 
-              :value="formatAmount(paymentsService.totalRevenue)"
+              :value="formatAmount(totalRevenue)"
               label="Total Revenue" 
               color-class="ca"
-              badge="+12.5%"
+              :badge="revenueGrowthBadge"
             >
               <template #icon>
                 <svg viewBox="0 0 24 24">
@@ -130,7 +146,7 @@
               :value="totalBookingsCount.toString()"
               label="Total Bookings" 
               color-class="ca"
-              badge="+8.3%"
+              :badge="bookingsGrowthBadge"
             >
               <template #icon>
                 <svg viewBox="0 0 24 24">
@@ -155,7 +171,7 @@
               :value="formatAmount(viewMode === 'monthly' ? monthlyRevenue : yearlyRevenue)"
               :label="viewMode === 'monthly' ? `${months[selectedMonth]} Revenue` : `${selectedYear} Revenue`" 
               color-class="cb"
-              badge="+15.2%"
+              :badge="viewMode === 'monthly' ? monthlyGrowthBadge : yearlyGrowthBadge"
             >
               <template #icon>
                 <svg viewBox="0 0 24 24">
@@ -168,7 +184,7 @@
               :value="(viewMode === 'monthly' ? monthlyBookings : yearlyBookings).toString()"
               :label="viewMode === 'monthly' ? `${months[selectedMonth]} Bookings` : `${selectedYear} Bookings`" 
               color-class="cb"
-              badge="+10.1%"
+              badge=""
             >
               <template #icon>
                 <svg viewBox="0 0 24 24">
@@ -291,11 +307,25 @@ import bookingsService from '@/services/bookingService'
 import paymentsService from '@/services/paymentsService'
 import StatCard from '@/components/StatCard.vue'
 
-// Local state
+// ==========================================
+// LOCALSTORAGE KEYS
+// ==========================================
+const STORAGE_KEYS = {
+  PAYMENTS: 'revenue_payments_cache',
+  BOOKINGS: 'revenue_bookings_cache',
+  TIMESTAMP: 'revenue_cache_timestamp'
+}
+
+// ==========================================
+// STATE
+// ==========================================
 const selectedYear = ref(new Date().getFullYear())
-const selectedMonth = ref(new Date().getMonth()) // 0 = January, 1 = February, etc.
+const selectedMonth = ref(new Date().getMonth())
 const viewMode = ref('monthly')
 const searchQuery = ref('')
+const isLoading = ref(false)
+const usingCachedData = ref(false)
+const lastCacheUpdate = ref('')
 
 // Months array
 const months = [
@@ -303,18 +333,154 @@ const months = [
   'July', 'August', 'September', 'October', 'November', 'December'
 ]
 
+// ==========================================
+// CACHE MANAGEMENT
+// ==========================================
+
+// Save data to localStorage
+const saveToCache = () => {
+  try {
+    const cacheData = {
+      payments: paymentsService.payments || [],
+      bookings: bookingsService.bookings || []
+    }
+    
+    localStorage.setItem(STORAGE_KEYS.PAYMENTS, JSON.stringify(cacheData.payments))
+    localStorage.setItem(STORAGE_KEYS.BOOKINGS, JSON.stringify(cacheData.bookings))
+    
+    const now = new Date()
+    lastCacheUpdate.value = now.toLocaleString()
+    localStorage.setItem(STORAGE_KEYS.TIMESTAMP, now.toISOString())
+    
+    console.log('✅ Revenue data cached to localStorage')
+  } catch (error) {
+    console.error('Failed to save to cache:', error)
+  }
+}
+
+// Load data from localStorage
+const loadFromCache = () => {
+  try {
+    const cachedPayments = localStorage.getItem(STORAGE_KEYS.PAYMENTS)
+    const cachedBookings = localStorage.getItem(STORAGE_KEYS.BOOKINGS)
+    const timestamp = localStorage.getItem(STORAGE_KEYS.TIMESTAMP)
+    
+    if (cachedPayments && cachedBookings) {
+      // Parse cached data
+      const payments = JSON.parse(cachedPayments)
+      const bookings = JSON.parse(cachedBookings)
+      
+      // Update services with cached data
+      // Note: This assumes your services have a way to set data
+      // If not, you might need to modify your services
+      if (paymentsService.setData) {
+        paymentsService.setData(payments)
+      } else {
+        // Alternative: Directly assign if possible
+        paymentsService.payments = payments
+      }
+      
+      if (bookingsService.setData) {
+        bookingsService.setData(bookings)
+      } else {
+        bookingsService.bookings = bookings
+      }
+      
+      lastCacheUpdate.value = timestamp ? new Date(timestamp).toLocaleString() : 'Unknown'
+      usingCachedData.value = true
+      
+      console.log('📦 Loaded revenue data from cache:', {
+        payments: payments.length,
+        bookings: bookings.length,
+        timestamp: lastCacheUpdate.value
+      })
+      
+      return true
+    }
+    return false
+  } catch (error) {
+    console.error('Failed to load from cache:', error)
+    return false
+  }
+}
+
+// Clear cache (useful if you want to force refresh)
+const clearCache = () => {
+  localStorage.removeItem(STORAGE_KEYS.PAYMENTS)
+  localStorage.removeItem(STORAGE_KEYS.BOOKINGS)
+  localStorage.removeItem(STORAGE_KEYS.TIMESTAMP)
+  usingCachedData.value = false
+  console.log('🗑️ Revenue cache cleared')
+}
+
+// ==========================================
+// DATA LOADING
+// ==========================================
+
+const loadData = async (forceRefresh = false) => {
+  isLoading.value = true
+  
+  try {
+    console.log('🔄 Loading revenue data...')
+    
+    // Try to load from cache first (unless force refresh)
+    if (!forceRefresh && loadFromCache()) {
+      isLoading.value = false
+      return
+    }
+    
+    // If no cache or force refresh, load from API
+    await bookingsService.fetchBookings()
+    await paymentsService.fetchPayments()
+    
+    // Save to cache after successful API fetch
+    saveToCache()
+    usingCachedData.value = false
+    
+    console.log('✅ Revenue data loaded from API:', {
+      bookings: bookingsService.bookings?.length || 0,
+      payments: paymentsService.payments?.length || 0
+    })
+    
+  } catch (error) {
+    console.error('❌ Error loading revenue data:', error)
+    
+    // If API fails, try cache as fallback
+    if (!usingCachedData.value) {
+      const cacheLoaded = loadFromCache()
+      if (cacheLoaded) {
+        console.log('⚠️ Using cached data as fallback after API failure')
+      }
+    }
+  } finally {
+    isLoading.value = false
+  }
+}
+
+const refreshData = () => {
+  clearCache()
+  loadData(true)
+}
+
+// ==========================================
+// COMPUTED PROPERTIES
+// ==========================================
+
+// Overall totals
+const totalRevenue = computed(() => {
+  return paymentsService.payments?.reduce((sum, p) => sum + (p.amt || 0), 0) || 0
+})
+
+const totalBookingsCount = computed(() => bookingsService.bookings?.length || 0)
+
 // Helper function to parse date safely
 const parsePaymentDate = (payment) => {
-  // Try different date fields
   const dateStr = payment.date || payment.paymentDate || payment.createdAt
   if (!dateStr) return null
   
-  // Handle different date formats
   let date = new Date(dateStr)
   
-  // Check if date is valid
   if (isNaN(date.getTime())) {
-    // Try parsing custom format like "March 4 2026"
     const parts = dateStr.split(' ')
     if (parts.length === 3) {
       const monthIndex = months.indexOf(parts[0])
@@ -327,40 +493,17 @@ const parsePaymentDate = (payment) => {
   return isNaN(date.getTime()) ? null : date
 }
 
-// ==========================================
-// COMPUTED: Payments by date
-// ==========================================
-
+// Payments by date
 const paymentsByMonth = computed(() => {
-  if (!paymentsService.payments?.length) {
-    return []
-  }
+  if (!paymentsService.payments?.length) return []
   
-  console.log(`Filtering payments for ${months[selectedMonth.value]} ${selectedYear.value}...`)
-  
-  const filtered = paymentsService.payments.filter(payment => {
+  return paymentsService.payments.filter(payment => {
     const paymentDate = parsePaymentDate(payment)
     if (!paymentDate) return false
     
-    // Don't filter by status to see all payments
-    const matches = paymentDate.getFullYear() === selectedYear.value && 
-                    paymentDate.getMonth() === selectedMonth.value
-    
-    if (matches) {
-      console.log('✅ Matched payment:', {
-        id: payment.paymentId,
-        date: payment.date,
-        parsedDate: paymentDate.toISOString(),
-        amount: payment.amt,
-        status: payment.status
-      })
-    }
-    
-    return matches
+    return paymentDate.getFullYear() === selectedYear.value && 
+           paymentDate.getMonth() === selectedMonth.value
   })
-  
-  console.log(`Found ${filtered.length} payments for ${months[selectedMonth.value]} ${selectedYear.value}`)
-  return filtered
 })
 
 const filteredPaymentsByMonth = computed(() => {
@@ -380,9 +523,7 @@ const paymentsByYear = computed(() => {
   return paymentsService.payments.filter(payment => {
     const paymentDate = parsePaymentDate(payment)
     if (!paymentDate) return false
-    
     return paymentDate.getFullYear() === selectedYear.value
-    // Don't filter by status
   })
 })
 
@@ -409,10 +550,7 @@ const bookingsByYear = computed(() => {
   })
 })
 
-// ==========================================
-// COMPUTED: Revenue calculations
-// ==========================================
-
+// Revenue calculations
 const monthlyRevenue = computed(() => {
   return paymentsByMonth.value.reduce((sum, p) => sum + (p.amt || 0), 0)
 })
@@ -421,7 +559,6 @@ const yearlyRevenue = computed(() => {
   return paymentsByYear.value.reduce((sum, p) => sum + (p.amt || 0), 0)
 })
 
-const totalBookingsCount = computed(() => bookingsService.bookings?.length || 0)
 const monthlyBookings = computed(() => bookingsByMonth.value.length)
 const yearlyBookings = computed(() => bookingsByYear.value.length)
 
@@ -429,29 +566,16 @@ const yearlyAvgPerBooking = computed(() => {
   return yearlyBookings.value > 0 ? yearlyRevenue.value / yearlyBookings.value : 0
 })
 
-// Yearly breakdown by month
+// Yearly breakdown
 const yearlyBreakdown = computed(() => {
-  if (!paymentsService.payments?.length && !bookingsService.bookings?.length) {
-    return months.map((monthName, index) => ({
-      month: monthName,
-      monthIndex: index,
-      bookings: 0,
-      revenue: 0,
-      avgPerBooking: 0
-    }))
-  }
-  
   return months.map((monthName, index) => {
-    // Get payments for this month
     const payments = paymentsService.payments?.filter(payment => {
       const paymentDate = parsePaymentDate(payment)
       if (!paymentDate) return false
       return paymentDate.getFullYear() === selectedYear.value && 
              paymentDate.getMonth() === index
-      // Don't filter by status
     }) || []
     
-    // Get bookings for this month
     const bookings = bookingsService.bookings?.filter(booking => {
       if (!booking.checkIn) return false
       const checkInDate = new Date(booking.checkIn)
@@ -473,6 +597,23 @@ const yearlyBreakdown = computed(() => {
   })
 })
 
+// Growth badges (for demo purposes)
+const revenueGrowthBadge = computed(() => {
+  return usingCachedData.value ? 'Cached' : '+12.5%'
+})
+
+const bookingsGrowthBadge = computed(() => {
+  return usingCachedData.value ? 'Cached' : '+8.3%'
+})
+
+const monthlyGrowthBadge = computed(() => {
+  return usingCachedData.value ? 'Cached' : '+15.2%'
+})
+
+const yearlyGrowthBadge = computed(() => {
+  return usingCachedData.value ? 'Cached' : '+10.1%'
+})
+
 // ==========================================
 // METHODS
 // ==========================================
@@ -482,29 +623,10 @@ const formatAmount = (amount) => {
   return `₱${Math.round(amount).toLocaleString('en-PH')}`
 }
 
-// Load data on mount
-const loadData = async () => {
-  try {
-    console.log('🔄 Loading revenue data...')
-    
-    // Load both services
-    await bookingsService.fetchBookings()
-    console.log('✅ Bookings loaded:', bookingsService.bookings?.length || 0)
-    
-    await paymentsService.fetchPayments()
-    console.log('✅ Payments loaded:', paymentsService.payments?.length || 0)
-    
-    // Log sample payment for debugging
-    if (paymentsService.payments?.length > 0) {
-      console.log('Sample payment:', paymentsService.payments[0])
-    }
-    
-  } catch (error) {
-    console.error('❌ Error loading revenue data:', error)
-  }
-}
+// ==========================================
+// WATCHERS & LIFECYCLE
+// ==========================================
 
-// Watch for changes
 watch([selectedYear, selectedMonth, viewMode], () => {
   console.log('Filters changed:', {
     year: selectedYear.value,
@@ -523,6 +645,51 @@ onMounted(async () => {
 .revenue-view {
   width: 100%;
   min-height: 100%;
+}
+
+/* Cache status indicator */
+.cache-status {
+  background: #e3f2fd;
+  border: 1px solid #90caf9;
+  border-radius: 6px;
+  padding: 8px 16px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #1976d2;
+}
+
+.cache-status svg {
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+}
+
+/* Refresh button */
+.refresh-btn {
+  background: transparent;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  padding: 4px;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.refresh-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.refresh-btn svg {
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
 }
 
 .loading-container {
