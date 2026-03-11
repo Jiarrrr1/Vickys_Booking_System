@@ -81,6 +81,7 @@ const FeedbackRoutes = require('./routes/feedbackRoutes')
 const AdminRoutes = require('./routes/adminRoutes')
 const PaymentRoutes = require('./routes/paymentRoutes')
 const DeletedItemsRoutes = require('./routes/deletedItemRoutes');
+const RoomRoutes = require('./routes/roomRoutes');
 const { verifyConnection } = require('./utils/emailSender');
 
 
@@ -104,6 +105,7 @@ app.use('/api/v1', ReservationRoutes);
 app.use('/api/v1', FeedbackRoutes);
 app.use('/api/v1/admin', AdminRoutes);
 app.use('/api/v1/admin', PaymentRoutes);
+app.use('api/v1/admin', RoomRoutes)
 
 // In server.js - keep only this line for deleted items
 app.use('/api/v1/admin/deleted', DeletedItemsRoutes);

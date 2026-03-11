@@ -2,7 +2,7 @@
   <!-- SINGLE ROOT DIV - wrap everything -->
   <div class="feedbacks-view">
     <section class="section fu">
-      <!-- Summary Stat Cards -->
+      <!-- Summary Stat Cards - UNCHANGED -->
       <div class="stats-grid c4 fu1">
         <!-- Total Feedbacks -->
         <StatCard
@@ -23,8 +23,6 @@
           label="Average Rating"
           color-class="ca"
         >
-                  <!-- ⭐ -->
-
           <template #icon>
             <svg viewBox="0 0 24 24">
               <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
@@ -91,6 +89,19 @@
           </div>
         </div>
 
+        <!-- Display Limit Info - NEW but minimal -->
+        <div v-if="displayedCount >= maxDisplayFeedbacks" class="limit-warning">
+          <svg viewBox="0 0 24 24" width="16" height="16">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <circle cx="12" cy="16" r="0.5" fill="currentColor"/>
+          </svg>
+          <span>Maximum {{ maxDisplayFeedbacks }} feedbacks can be displayed reached</span>
+        </div>
+        <div v-else class="limit-warning note">
+            <span>Note!: Maximum {{ maxDisplayFeedbacks }} feedbacks can be displayed</span>
+        </div>
+
         <!-- Table -->
         <div class="twrap">
           <table v-if="!isLoading && filteredFeedbacks.length > 0">
@@ -130,8 +141,9 @@
                       type="checkbox" 
                       :checked="feedback.isDisplay"
                       @change="toggleDisplay(feedback)"
+                      :disabled="!feedback.isDisplay && displayedCount >= maxDisplayFeedbacks"
                     >
-                    <span class="toggle-slider"></span>
+                    <span class="toggle-slider" :class="{ disabled: !feedback.isDisplay && displayedCount >= maxDisplayFeedbacks }"></span>
                   </label>
                 </td>
                 <td><strong>{{ formatDate(feedback.createdAt) }}</strong></td>
@@ -191,6 +203,17 @@
       </div>
     </section>
 
+    <!-- Error Modal -->
+    <FeedbackModal
+      :show="showErrorModal"
+      type="error"
+      :title="errorTitle"
+      :message="errorMessage"
+      button-text="OK"
+      @close="showErrorModal = false"
+      @confirm="showErrorModal = false"
+    />
+
     <!-- Confirmation Modal -->
     <ConfirmationModal
       :show="showConfirmModal"
@@ -211,19 +234,28 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useFeedbacksService } from '@/services/feedbackService'
 import StatCard from '@/components/StatCard.vue'
 import ConfirmationModal from '@/modals/confirmationModal.vue'
+import FeedbackModal from '@/modals/FeedbackModal.vue'
 
 const feedbacksService = useFeedbacksService()
+
+// Constants
+const maxDisplayFeedbacks = 3
 
 // Local state
 const searchQuery = ref('')
 const currentPage = ref(1)
 const itemsPerPage = 10
 
+// Error modal state
+const showErrorModal = ref(false)
+const errorTitle = ref('')
+const errorMessage = ref('')
+
 // Confirmation modal state
 const showConfirmModal = ref(false)
 const feedbackToDelete = ref(null)
 
-// Computed properties from service
+// Computed properties from service - UNCHANGED
 const {
   feedbacks,
   isLoading,
@@ -283,6 +315,14 @@ const toggleDisplay = async (feedback) => {
   
   console.log(`Toggling feedback #${feedback.id} from ${feedback.isDisplay} to ${newStatus}`)
 
+  // Check if trying to enable a new display when already at max
+  if (newStatus === true && displayedCount.value >= maxDisplayFeedbacks) {
+    showErrorModal.value = true
+    errorTitle.value = 'Display Limit Reached'
+    errorMessage.value = `Only ${maxDisplayFeedbacks} feedbacks can be displayed at a time. Please uncheck another feedback first.`
+    return
+  }
+
   const result = await feedbacksService.toggleFeedbackStatus(
     feedback.id, 
     newStatus
@@ -290,15 +330,13 @@ const toggleDisplay = async (feedback) => {
   
   if (result.success) {
     console.log(`✅ Display status toggled for feedback #${feedback.id}`)
-    // The service already updates the state, but we update local ref for immediate UI feedback
-    feedback.isDisplay = newStatus
+    // The service already updates the state
   } else {
     console.error('❌ Failed to toggle display:', result.error)
   }
 }
 
 const deleteFeedback = (feedback) => {
-  // Store the feedback to delete and show modal
   feedbackToDelete.value = feedback
   showConfirmModal.value = true
 }
@@ -313,23 +351,16 @@ const confirmDelete = async () => {
   
   if (result.success) {
     console.log(`✅ Feedback #${feedback.id} deleted successfully`)
-    // Refresh the list
     await fetchFeedbacks()
   } else {
     console.error('❌ Failed to delete feedback:', result.error)
   }
   
-  // Clear the feedback to delete
   feedbackToDelete.value = null
 }
 
 const cancelDelete = () => {
-  // Just clear the feedback to delete
   feedbackToDelete.value = null
-}
-
-const retryFetch = () => {
-  fetchFeedbacks()
 }
 
 // Watch for search changes to reset pagination
@@ -360,6 +391,33 @@ onMounted(() => {
   display: flex;
   gap: 12px;
   align-items: center;
+}
+
+/* Limit Warning - Minimal, doesn't affect stat cards */
+.limit-warning {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  margin-bottom: 16px;
+  background: #fff3cd;
+  border: 1px solid #ffeeba;
+  border-radius: 6px;
+  color: #856404;
+  font-size: 13px;
+}
+
+.limit-warning.note {
+  background-color: #7294e249;
+  border: 1px solid #7293e277 ;
+  color: rgb(49, 49, 221);
+}
+
+.limit-warning svg {
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  flex-shrink: 0;
 }
 
 /* Rating Cell */
@@ -469,6 +527,11 @@ input:checked + .toggle-slider:before {
 
 .toggle-slider:hover {
   opacity: 0.9;
+}
+
+.toggle-slider.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* Delete Button */

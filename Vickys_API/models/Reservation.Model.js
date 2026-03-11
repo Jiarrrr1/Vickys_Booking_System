@@ -19,11 +19,7 @@ const reservationSchema = new mongoose.Schema({
         type: String,
         required: true,
     },
-    checkIn: {
-        type: String,
-        required: true,
-    },
-    checkOut: {
+    bookingDate: {
         type: String,
         required: true,
     },
@@ -42,7 +38,7 @@ const reservationSchema = new mongoose.Schema({
         enum: ['Downpayment', 'Full Payment', 'Balance Payment'],
         default: 'Down'
     },
-    paymentMethod: { // 'gcash' or 'cash'
+    paymentMethod: { 
         type: String,
         required: true,
         enum: ['GCash', 'Cash'],
@@ -56,8 +52,12 @@ const reservationSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    roomQuantity:{
+        type: Number,
+        default: 1
+    },
     totalAmount: {
-        type: String,
+        type: Number,
         required: true
     },
     referenceNumber: {
@@ -82,7 +82,13 @@ const reservationSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        default: "Pending"
+        default: "Confirmed",
+
+    },
+    reservationType: {
+        type: String,
+        enum: ['Day Time', 'Night Time', 'Full Day'],
+        required: true,
     },
     isDeleted: {
         type: Boolean,

@@ -8,6 +8,9 @@ const { checkAdmin } = require('../middleware/authMiddleware');
 class ReservationServices {
   async createReservation(payload, req) {
     try {
+
+      console.log('remain bal:', payload.remainingBalance);
+      
       const newId = await generateId();
 
       const newReservation = new Reservation({
@@ -15,27 +18,29 @@ class ReservationServices {
         fullName: payload.fullName,
         email: payload.email,
         phoneNumber: payload.phoneNumber,
-        checkIn: payload.checkIn,
-        checkOut: payload.checkOut,
-        guestQuantity: payload.guests,
+        bookingDate: payload.bookingDate, // ✅ Correct - matches frontend
+        guestQuantity: payload.guestQuantity,
         request: payload.request || "",
         paymentType: payload.paymentType,
         paymentMethod: payload.paymentMethod || 'Gcash',
         roomId: payload.roomId,
         roomName: payload.roomName,
-        totalAmount: payload.total.toString(),
-        status: payload.status || "Pending",
-        referenceNumber: payload.rfrncNumber || "",
-        totalNights: payload.totalNights,
+        roomQuantity: payload.roomQuantity,
+        totalAmount: payload.totalAmount, // ✅ Using totalAmount (not total)
+        status: "Confirmed",
+        referenceNumber: payload.referenceNumber,
         downpayment: payload.downpayment,
-        remainingBalance: payload.remainingBalance
+        remainingBalance: payload.remainingBalance,
+        reservationType: payload.reservationType || "Day Time"
       });
 
       await newReservation.save();
       console.log(`✅ Reservation #${newId} created successfully`);
-      console.log(`   Total: ₱${payload.total}`);
+      console.log(`   Total: ₱${payload.totalAmount}`); // ✅ Using totalAmount
       console.log(`   Downpayment: ₱${payload.downpayment}`);
       console.log(`   Remaining Balance: ₱${payload.remainingBalance}`);
+      console.log(`   Booking Date: ${payload.bookingDate}`); // ✅ Using bookingDate
+      console.log(`   Reservation Type: ${payload.reservationType}`);
 
       // Check if this is a client-side reservation (not admin)
       const isAdmin = await checkAdmin(req);
@@ -43,12 +48,12 @@ class ReservationServices {
       if (!isAdmin) {
         console.log('👤 Client-side reservation - creating payment record...');
         
-        // ✅ FIXED: Calculate amount to pay
+        // Calculate amount to pay
         function calculateAmountToPay() {
           if (payload.paymentType === 'Downpayment') {
             return payload.downpayment;
           } else if (payload.paymentType === 'Full Payment') {
-            return payload.total;
+            return payload.totalAmount; // ✅ Changed from payload.total to payload.totalAmount
           } else if (payload.paymentType === 'Balance Payment') {
             return payload.remainingBalance;
           }
@@ -57,9 +62,9 @@ class ReservationServices {
 
         function generateNotes() {
           if (payload.paymentType === 'Downpayment') {
-            return `Downpayment for Reservation #${newReservation.reservationId} received. Remaining balance: ₱${newReservation.remainingBalance || 0}`;
+            return `Downpayment for ${payload.reservationType} Reservation #${newReservation.reservationId} on ${payload.bookingDate}. Remaining balance: ₱${newReservation.remainingBalance || 0}`; // ✅ Changed checkIn to bookingDate
           } else if (payload.paymentType === 'Full Payment') {
-            return `Full payment for Reservation #${newReservation.reservationId} received.`;
+            return `Full payment for ${payload.reservationType} Reservation #${newReservation.reservationId} on ${payload.bookingDate}.`; // ✅ Changed checkIn to bookingDate
           } else if (payload.paymentType === 'Balance Payment') {
             return `Balance payment for Reservation #${newReservation.reservationId} received.`;
           }
@@ -68,20 +73,21 @@ class ReservationServices {
 
         const amountPaid = calculateAmountToPay();
         
-        // ✅ FIXED: Calculate the balance AFTER this payment
-        const balanceAfterPayment = payload.total - amountPaid;
+        // Calculate the balance AFTER this payment
+        // ✅ FIXED: Use totalAmount instead of total
+        const balanceAfterPayment = payload.totalAmount - amountPaid;
 
         const paymentPayload = {
           guestName: newReservation.fullName,
           email: newReservation.email,
           phoneNumber: newReservation.phoneNumber,
           roomName: newReservation.roomName,
-          amount: amountPaid,  // Amount being paid NOW
+          amount: amountPaid,
           paymentMethod: payload.paymentMethod === 'gcash' ? 'Gcash' : 'Cash',
-          referenceNumber: payload.paymentMethod === 'gcash' ? payload.rfrncNumber : '',
+          referenceNumber: payload.paymentMethod === 'gcash' ? payload.referenceNumber : '',
           paymentType: payload.paymentType,
           notes: generateNotes(),
-          balance: balanceAfterPayment  // ✅ FIXED: Balance AFTER this payment
+          balance: balanceAfterPayment
         };
 
         console.log("💰 Payment payload:");

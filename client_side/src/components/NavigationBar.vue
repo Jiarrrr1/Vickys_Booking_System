@@ -11,8 +11,8 @@
       <li><router-link to="/rates" @click="closeMenu">Rates</router-link></li>
       <li><router-link to="/gallery" @click="closeMenu">Gallery</router-link></li>
       <li><router-link to="/about" @click="closeMenu">About Us</router-link></li>
-      <li><router-link to="/rooms" class="nav-book" @click="closeMenu">Book Now</router-link></li>
-    </ul>
+      <li><a href="/#availability" class="nav-book" @click="closeMenu"> Book Now</a></li>
+      </ul>
     <button 
       class="nav-hamburger" 
       :class="{ 'open': isMenuOpen }"

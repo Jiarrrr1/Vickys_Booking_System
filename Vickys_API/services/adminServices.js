@@ -34,7 +34,7 @@ class AdminManagement {
         userId: generatedId,
         fullName: payload.fullName,
         userName: payload.userName.toLowerCase(),
-        status: payload.status || 'Active', // Use lowercase to match enum
+        status: 'Inactive', // Use lowercase to match enum
         lastLogin: null,
         email: payload.email.toLowerCase(),
         password: hashedPassword,

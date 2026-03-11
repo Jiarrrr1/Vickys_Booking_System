@@ -363,7 +363,6 @@
 
 .avail-grid {
   display: grid;
-  grid-template-columns: 1.4fr 1fr;
   gap: 40px;
   align-items: start;
 }
@@ -416,11 +415,11 @@
   display: flex;
   gap: 20px;
   padding: 16px 32px;
-  background: #f8f8f8;
-  border-bottom: 1px solid #eee;
+
 }
 
 .legend-item {
+
   display: flex;
   align-items: center;
   gap: 8px;
@@ -439,13 +438,16 @@
 }
 
 .legend-dot.booked {
-  background: #e8a0a0;
+  background: #de1b1b;
 }
 
-.legend-dot.selected {
-  background: var(--teal);
+.legend-dot.partially-booked {
+  background: var(--gold-light);
 }
 
+.legend-dot.fully-booked {
+  background: #de1b1b;
+}
 .cal-grid {
   padding: 20px 32px 32px;
 }
@@ -473,7 +475,7 @@
 }
 
 .cal-day {
-  aspect-ratio: 1;
+  aspect-ratio: 2/2;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -519,10 +521,7 @@
 }
 
 /* .cal-day.selected { background: var(--teal); color: var(--white); border-color: #3a8e7e; } */
-.cal-day.checkin {
-  background: var(--charcoal);
-  color: var(--white);
-}
+
 
 .cal-footer {
   padding: 16px 32px;
@@ -1938,12 +1937,14 @@
 .prog-steps {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 20px;
 }
 
 .prog-step {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 30px;
   flex: 1;
   position: relative;
 }

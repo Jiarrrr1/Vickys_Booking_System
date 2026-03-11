@@ -23,8 +23,8 @@
           </template>
         </StatCard>
 
-        <!-- Upcoming Check-ins (next 7 days) -->
-        <StatCard :value="upcomingBookings.length" label="Upcoming Check-ins" color-class="ca"
+        <!-- Upcoming Bookings (next 7 days) -->
+        <StatCard :value="upcomingBookings.length" label="Upcoming (7 days)" color-class="ca"
           :badge="`+${upcomingBookings.length}`" class="fu3">
           <template #icon>
             <svg viewBox="0 0 24 24" width="24" height="24">
@@ -41,8 +41,8 @@
           <!-- Card Header -->
           <div class="card-head">
             <div>
-              <div class="card-title">Recent Bookings</div>
-              <div class="card-sub">Showing today's check-ins</div>
+              <div class="card-title">Today's Bookings</div>
+              <div class="card-sub">Showing reservations for {{ formatTodayDate() }}</div>
             </div>
             <router-link to="/bookings" class="btn-g">
               View all
@@ -70,9 +70,9 @@
                     <th>Guest Name</th>
                     <th>Room</th>
                     <th>Guests</th>
-                    <th>Check-in</th>
-                    <th>Check-out</th>
-                    <th >Status</th>
+                    <th>Booking Date</th>
+                    <th>Reservation Type</th>
+                    <th style="text-align: center;">Status</th>
                     <th>Booked On</th>
                   </tr>
                 </thead>
@@ -80,11 +80,15 @@
                   <tr v-for="booking in todaysBookings" :key="booking.id" @click="openBookingModal(booking)">
                     <td class="tdm">#{{ String(booking.id).padStart(4, '0') }}</td>
                     <td class="tdn">{{ booking.guest }}</td>
-                    <td>{{ booking.room }}</td>
-                    <td style="text-align:center;">{{ booking.guests }}</td>
-                    <td><strong>{{ formatDate(booking.checkIn) }}</strong></td>
-                    <td>{{ formatDate(booking.checkOut) }}</td>
-                    <td @click.stop>
+                    <td>{{ booking.roomName }}</td>
+                    <td style="text-align:center;">{{ booking.guestQuantity }}</td>
+                    <td><strong>{{ formatDate(booking.bookingDate) }}</strong></td>
+                    <td>
+                      <span class="reservation-badge" :class="getReservationTypeClass(booking.reservationType)">
+                        {{ booking.reservationType || 'Day Time' }}
+                      </span>
+                    </td>
+                    <td style="text-align: center;" @click.stop>
                       <select 
                         class="status-dropdown" 
                         :class="getStatusClass(booking.status)" 
@@ -92,11 +96,10 @@
                         @change="updateBookingStatus(booking.id, $event.target.value)"
                         :disabled="updatingStatusFor === booking.id"
                       >
-                        <option value="Pending">Pending</option>
                         <option value="Confirmed">Confirmed</option>
                         <option value="Checked-in">Checked-in</option>
-                        <option value="Checked-out">Checked-out</option>
-                        <option value="Cancelled">Cancelled</option>
+                        <option value="Success">Succes</option>
+                        <option value="Re-schedule">Re-schedule</option>
                       </select>
                     </td>
                     <td style="color:var(--t3);font-size:12.5px;">
@@ -113,7 +116,7 @@
                   <path d="m21 21-4.35-4.35" stroke="currentColor" stroke-width="2" />
                 </svg>
                 <h3>No Bookings Today</h3>
-                <p>There are no check-ins scheduled for today.</p>
+                <p>There are no reservations scheduled for {{ formatTodayDate() }}.</p>
               </div>
             </template>
           </div>
@@ -126,7 +129,8 @@
       :show="showBookingModal" 
       :booking="selectedBooking" 
       @close="closeBookingModal"
-      @update-status="handleStatusUpdate" 
+      @update-status="handleStatusUpdate"
+      @payment-success="handlePaymentSuccess"
     />
   </div>
 </template>
@@ -149,9 +153,30 @@ const getStatusClass = (status) => {
     'Confirmed': 'status-confirmed',
     'Checked-in': 'status-checkedin',
     'Checked-out': 'status-checkedout',
+    'Re-schedule': 'status-reschedule',
     'Cancelled': 'status-cancelled'
   }
   return classes[status] || 'status-pending'
+}
+
+// Get reservation type class for styling
+const getReservationTypeClass = (type) => {
+  const classes = {
+    'Day Time': 'type-day',
+    'Night Time': 'type-night',
+    'Full Day': 'type-full'
+  }
+  return classes[type] || 'type-day'
+}
+
+// Format today's date for display
+const formatTodayDate = () => {
+  const today = new Date()
+  return today.toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric'
+  })
 }
 
 // Open modal with selected booking
@@ -165,6 +190,13 @@ const openBookingModal = (booking) => {
 const closeBookingModal = () => {
   showBookingModal.value = false
   selectedBooking.value = null
+}
+
+// Handle payment success from modal
+const handlePaymentSuccess = ({ bookingId, amount, newBalance }) => {
+  console.log(`💰 Payment processed for booking #${bookingId}: ₱${amount}, new balance: ₱${newBalance}`)
+  
+  // Optionally refresh bookings or show a success message
 }
 
 // Update booking status from dropdown
@@ -244,52 +276,107 @@ const handleStatusUpdate = async ({ bookingId, newStatus }) => {
 // Format date helper
 const formatDate = (dateString) => {
   if (!dateString) return 'N/A'
-  const options = { year: 'numeric', month: 'short', day: 'numeric' }
-  return new Date(dateString).toLocaleDateString('en-US', options)
+  
+  try {
+    // Handle YYYY-MM-DD format
+    if (typeof dateString === 'string' && dateString.includes('-')) {
+      const [year, month, day] = dateString.split('-')
+      const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
+      return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      })
+    }
+    
+    // Handle Date objects or timestamps
+    const date = new Date(dateString)
+    if (isNaN(date.getTime())) return dateString
+    
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    })
+  } catch (e) {
+    return dateString
+  }
 }
 
 // Filtered bookings based on today's date
+// Filtered bookings based on today's date
 const todaysBookings = computed(() => {
-  if (!bookingsService.bookings.length) return []
+  if (!bookingsService.bookings.length) {
+    console.log('📊 No bookings in service')
+    return []
+  }
 
+  // Get today's date in YYYY-MM-DD using local time (NOT UTC)
   const today = new Date()
-  today.setHours(0, 0, 0, 0)
+  const year = today.getFullYear()
+  const month = String(today.getMonth() + 1).padStart(2, '0')
+  const day = String(today.getDate()).padStart(2, '0')
+  const todayStr = `${year}-${month}-${day}`
+  
+  console.log('📅 Today (local):', todayStr)
+  console.log('📋 Sample booking:', bookingsService.bookings[0])
 
-  return bookingsService.bookings.filter(booking => {
-    const checkIn = new Date(booking.checkIn)
-    checkIn.setHours(0, 0, 0, 0)
-    return checkIn.getTime() === today.getTime()
+  const filtered = bookingsService.bookings.filter(booking => {
+    // bookingDate should already be in YYYY-MM-DD format from transformBooking
+    const bookingDate = booking.bookingDate
+    return bookingDate === todayStr
   }).sort((a, b) => {
-    return new Date(a.checkIn) - new Date(b.checkIn)
+    return (a.bookingDate || '').localeCompare(b.bookingDate || '')
   })
+  
+  console.log(`📊 Found ${filtered.length} bookings for today`)
+  return filtered
 })
 
 // Upcoming bookings (next 7 days)
 const upcomingBookings = computed(() => {
-  if (!bookingsService.bookings.length) return []
+  if (!bookingsService.bookings.length) {
+    console.log('📊 No bookings in service for upcoming')
+    return []
+  }
 
+  // Get today's date in YYYY-MM-DD using local time
   const today = new Date()
-  today.setHours(0, 0, 0, 0)
+  const year = today.getFullYear()
+  const month = String(today.getMonth() + 1).padStart(2, '0')
+  const day = String(today.getDate()).padStart(2, '0')
+  const todayStr = `${year}-${month}-${day}`
 
+  // Get date 7 days from now
   const sevenDaysLater = new Date(today)
   sevenDaysLater.setDate(today.getDate() + 7)
+  const laterYear = sevenDaysLater.getFullYear()
+  const laterMonth = String(sevenDaysLater.getMonth() + 1).padStart(2, '0')
+  const laterDay = String(sevenDaysLater.getDate()).padStart(2, '0')
+  const sevenDaysLaterStr = `${laterYear}-${laterMonth}-${laterDay}`
 
-  return bookingsService.bookings.filter(booking => {
-    const checkIn = new Date(booking.checkIn)
-    return checkIn >= today && checkIn <= sevenDaysLater
+  console.log('📅 Date range:', todayStr, 'to', sevenDaysLaterStr)
+
+  const filtered = bookingsService.bookings.filter(booking => {
+    const bookingDate = booking.bookingDate
+    // Only include future bookings (>= today) and within 7 days
+    return bookingDate >= todayStr && bookingDate <= sevenDaysLaterStr
   })
-})
-
-// Walk-ins
-const walkIns = computed(() => {
-  return bookingsService.bookings.filter(booking =>
-    booking.method?.toLowerCase() === 'walk-in'
-  ).length || 0
+  
+  console.log(`📊 Found ${filtered.length} upcoming bookings`)
+  return filtered
 })
 
 onMounted(async () => {
   // Fetch bookings
   await bookingsService.fetchBookings()
+  // Debug: Log all bookings and their dates
+  console.log('📋 All bookings after fetch:', bookingsService.bookings.map(b => ({
+    id: b.id,
+    guest: b.guest,
+    bookingDate: b.bookingDate,
+    room: b.room
+  })))
 })
 </script>
 
@@ -348,10 +435,41 @@ tr:hover {
   border-color: #d6d8db;
 }
 
+.status-reschedule {
+  background-color: #fff3cd;
+  color: #856404;
+  border-color: #ffeeba;
+}
+
 .status-cancelled {
   background-color: #f8d7da;
   color: #721c24;
   border-color: #f5c6cb;
+}
+
+/* Reservation type badge styles */
+.reservation-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  text-align: center;
+}
+
+.type-day {
+  background-color: #e3f2fd;
+  color: #1976d2;
+}
+
+.type-night {
+  background-color: #e8eaf6;
+  color: #3f51b5;
+}
+
+.type-full {
+  background-color: #f3e5f5;
+  color: #7b1fa2;
 }
 
 .loading-spinner {

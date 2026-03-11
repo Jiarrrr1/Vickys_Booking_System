@@ -1,5 +1,5 @@
 // ============================================
-// FRONTEND: Deleted Items Service (FIXED)
+// FRONTEND: Deleted Items Service (UPDATED with password verification)
 // ============================================
 // File: services/deletedItemsService.js
 
@@ -75,7 +75,18 @@ export function useDeletedItemsService() {
     }
   }
   
-  // Restore an item
+  // ✅ NEW: Verify admin password
+  const verifyPassword = async (password) => {
+    try {
+      const response = await adminClient.post('/admin/verify-password', { password })
+      return response.data?.success || false
+    } catch (error) {
+      console.error('Password verification error:', error)
+      return false
+    }
+  }
+  
+  // Restore an item (with password verification in component)
   const restoreItem = async (deletedItemId) => {
     try {
       console.log(`🔄 Restoring item:`, deletedItemId)
@@ -119,7 +130,7 @@ export function useDeletedItemsService() {
     }
   }
   
-  // Permanently delete an item
+  // Permanently delete an item (with password verification in component)
   const permanentlyDeleteItem = async (deletedItemId) => {
     try {
       console.log(`🗑️ Permanently deleting item:`, deletedItemId)
@@ -165,12 +176,11 @@ export function useDeletedItemsService() {
     }
   }
   
-  // ✅ FIXED: Empty ALL trash - use the correct endpoint
+  // Empty ALL trash - use the correct endpoint
   const emptyAllTrash = async () => {
     try {
       console.log(`🧹 Emptying ALL trash items`)
       
-      // Use the correct endpoint: /empty-all (not /empty-trash)
       const response = await adminClient.post(`/admin/deleted/empty-all`)
       
       if (response.data && response.data.success) {
@@ -186,12 +196,11 @@ export function useDeletedItemsService() {
     }
   }
   
-  // ✅ FIXED: Empty trash older than X days - use the correct endpoint
+  // Empty trash older than X days
   const emptyTrashOlderThan = async (days) => {
     try {
       console.log(`🧹 Emptying trash older than ${days} days`)
       
-      // Use the correct endpoint: /empty-older-than (not /empty-trash)
       const response = await adminClient.post(`/admin/deleted/empty-older-than`, { days })
       
       if (response.data && response.data.success) {
@@ -267,10 +276,11 @@ export function useDeletedItemsService() {
     restoreMultipleItems,
     permanentlyDeleteItem,
     permanentlyDeleteMultiple,
-    emptyAllTrash,        // ✅ Fixed - uses /empty-all
-    emptyTrashOlderThan,  // ✅ Fixed - uses /empty-older-than
-    emptyTrashByType,     // ✅ Fixed - uses /empty-by-type
+    emptyAllTrash,
+    emptyTrashOlderThan,
+    emptyTrashByType,
     getTrashStats,
     setFilterType,
+    verifyPassword, // ✅ NEW: Export verifyPassword
   }
 }

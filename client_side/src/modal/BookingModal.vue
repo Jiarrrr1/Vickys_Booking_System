@@ -19,16 +19,12 @@
             <strong>{{ bookingRoom.name }}</strong>
           </div>
           <div class="summary-row">
-            <span>Check-in:</span>
-            <strong>{{ formatDate(form.checkIn) }}</strong>
+            <span>Date:</span>
+            <strong>{{ formatDate(bookingDate) }}</strong>
           </div>
           <div class="summary-row">
-            <span>Check-out:</span>
-            <strong>{{ formatDate(form.checkOut) }}</strong>
-          </div>
-          <div class="summary-row">
-            <span>Total Nights:</span>
-            <strong>{{ totalNights }}</strong>
+            <span>Reservation Type:</span>
+            <strong>{{ reservationType }}</strong>
           </div>
           
           <div class="summary-divider"></div>
@@ -123,9 +119,9 @@
                 </div>
                 <div class="fgrp">
                   <label>Contact Number</label>
-                  <div style="display: flex; align-items: center; justify-content: center; gap: 2px;">
+                  <div style="display: flex; align-items: center; gap: 2px;">
                     <div>+63</div>
-                    <input v-model="form.phone" type="number" placeholder="9XX XXX XXXX">
+                    <input v-model="form.phone" type="tel" placeholder="9XX XXX XXXX">
                   </div>
                   <small v-if="fieldErrors.phone"
                     style="color: #e74c3c; display: block; margin-left: 30px; margin-top: 4px;">
@@ -145,30 +141,8 @@
               </div>
             </div>
 
-            <!-- STEP 2 — Booking Date -->
+            <!-- STEP 2 — Review -->
             <div v-show="currentStep === 2" class="form-step">
-              <div class="step-title">Booking Details</div>
-              <div class="step-sub">When would you like to stay?</div>
-              <div class="fgrp">
-                <label>Check-In Date</label>
-                <input v-model="form.checkIn" type="date" :min="minDate" :max="maxCheckInDate" @input="validateCheckIn"
-                  @keydown="preventTyping" ref="checkInInput">
-                <small v-if="checkInError"
-                  style="color: #e74c3c; display: block; margin-top: 4px; margin-bottom: 4px; ">
-                  {{ checkInError }}
-                </small>
-
-                <label>Check-Out Date</label>
-                <input v-model="form.checkOut" type="date" :min="minCheckOutDate" :max="maxCheckOutDate"
-                  :disabled="!form.checkIn" @input="validateCheckOut" @keydown="preventTyping" ref="checkOutInput">
-                <small v-if="checkOutError" style="color: #e74c3c; display: block; margin-top: 4px;">
-                  {{ checkOutError }}
-                </small>
-              </div>
-            </div>
-
-            <!-- STEP 3 — Review -->
-            <div v-show="currentStep === 3" class="form-step">
               <div class="step-title">Review Your Booking</div>
               <div class="step-sub">Review your details before proceeding to payment.</div>
               
@@ -182,14 +156,13 @@
                   <div class="sum-row"><span>Email</span><strong>{{ form.email || '—' }}</strong></div>
                   <div class="sum-row"><span>Contact Number</span><strong>+63 {{ form.phone || '—' }}</strong></div>
                   <div class="sum-row"><span>Number of Guests</span><strong>{{ form.guestCount }}</strong></div>
-                  <div class="sum-row"><span>Check-In</span><strong>{{ form.checkIn || '—' }}</strong></div>
-                  <div class="sum-row"><span>Check-Out</span><strong>{{ form.checkOut || '—' }}</strong></div>
-                  <div class="sum-row"><span>Total Nights</span><strong>{{ totalNights }} {{ totalNights === 1 ? 'night' : 'nights' }}</strong></div>
+                  <div class="sum-row"><span>Date</span><strong>{{ formatDate(bookingDate) || '—' }}</strong></div>
+                  <div class="sum-row"><span>Reservation Type</span><strong>{{ reservationType || '—' }}</strong></div>
                 </div>
-                <div class="sum-total" style="margin-top: 15px;">
-                  <div style="display: flex; justify-content: space-between; font-size: 18px;">
+                <div class="sum-total">
+                  <div>
                     <span class="sum-total-label">Total Amount</span>
-                    <span class="sum-total-amt" style="font-weight: bold;">₱{{ totalPrice.toLocaleString() }}</span>
+                    <span class="sum-total-amt">₱{{ totalPrice.toLocaleString() }}</span>
                   </div>
                 </div>
               </div>
@@ -199,8 +172,8 @@
               </div>
             </div>
 
-            <!-- STEP 4 — Payment -->
-            <div v-show="currentStep === 4" class="form-step">
+            <!-- STEP 3 — Payment -->
+            <div v-show="currentStep === 3" class="form-step">
               <div class="step-title">Payment</div>
               <div class="step-sub">Complete your payment to confirm booking</div>
               
@@ -212,9 +185,9 @@
                 </div>
               </div>
 
-              <div class="qr-code" style="text-align: center; margin: 20px 0;">        
+              <div class="qr-code">        
                 Scan the QR code to pay
-                <img src="../assets/images/QRCode.svg" alt="" width="200px" style="display: block; margin: 10px auto;">
+                <img src="../assets/images/QRCode.svg" alt="GCash QR Code" width="200px">
               </div>
               
               <div class="fgrp">
@@ -246,7 +219,7 @@
             <button class="btn-back" :style="{ visibility: currentStep === 1 ? 'hidden' : 'visible' }"
               @click="prevStep">← Back</button>
             <button class="btn-next" @click="nextStep">
-              {{ currentStep === 4 ? 'Confirm Booking' : 'Continue →' }}
+              {{ currentStep === 3 ? 'Confirm Booking' : 'Continue →' }}
             </button>
           </div>
         </div>
@@ -258,45 +231,26 @@
 <script setup>
 import { useBooking } from '@/utils/useBooking'
 import { useBookingModal } from '@/utils/useBookingModal'
-import { computed } from 'vue'
 
-const { isOpen, bookingRoom, closeBooking } = useBooking()
+const { isOpen, bookingRoom, bookingDate, reservationType, closeBooking } = useBooking()
 
 const {
   stepLabels,
   currentStep,
   submitted,
   refNumber,
-  checkInInput,
-  checkOutInput,
-  checkInError,
-  checkOutError,
   fieldErrors,
   form,
-  minDate,
-  blockedDateRanges,
-  maxCheckInDate,
-  maxCheckOutDate,
-  minCheckOutDate,
-  totalNights,
   totalPrice,
   computeDownpayment,
   computeRemainingBalance,
-  getReservation,
-  validateCheckIn,
-  validateCheckOut,
-  preventTyping,
-  formatDate,
   nextStep,
   prevStep,
   resetForm,
-  bookAnother,
+  formatDate,
+  preventTyping,
   isSubmitting,
-  paymentCompleted,
-  paymentLocked,
-} = useBookingModal(bookingRoom, isOpen, closeBooking)
-
-
+} = useBookingModal(bookingRoom, bookingDate, reservationType, isOpen, closeBooking)
 
 const closeSuccessModal = () => {
   closeBooking()

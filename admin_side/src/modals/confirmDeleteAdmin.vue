@@ -1,4 +1,4 @@
-<!-- src/modals/confirmationModal.vue -->
+<!-- src/modals/confirmDeleteAdmin.vue -->
 <template>
   <Transition name="modal-fade">
     <div v-if="show" class="modal-overlay" @click="handleOverlayClick">

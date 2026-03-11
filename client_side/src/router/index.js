@@ -34,6 +34,11 @@ const routes = [
     name: 'Gallery',
     component: GalleryPage
   },
+  {
+    path: '/scratch',    
+    name: 'Scratch',
+    component: () => import('@/views/Scratch.vue') // Lazy load the Scratch page
+  }
 
   // Add more routes as needed
 ]

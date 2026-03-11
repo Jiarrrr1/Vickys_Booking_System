@@ -18,11 +18,12 @@ const state = reactive({
 const transformBooking = (backendBooking) => ({
   id: backendBooking.reservationId || backendBooking._id,
   guest: backendBooking.fullName,
-  room: backendBooking.roomName,
-  guests: backendBooking.guestQuantity,
-  checkIn: backendBooking.checkIn,
-  checkOut: backendBooking.checkOut,
-  status: backendBooking.status || 'Pending',
+  guestQuantity: backendBooking.guestQuantity,
+  roomId: backendBooking.roomId, // ✅ CRITICAL: Preserve roomId
+    roomName: backendBooking.roomName, // ✅ CRITICAL: Preserve roomName  guests: backendBooking.guestQuantity,
+  bookingDate: backendBooking.bookingDate || backendBooking.checkIn || null,
+  reservationType: backendBooking.reservationType,
+  status: backendBooking.status || 'Confirmed',
   bookedOn: backendBooking.createdAt,
   request: backendBooking.request || '',
   notes: backendBooking.notes || '',
@@ -34,7 +35,7 @@ const transformBooking = (backendBooking) => ({
   referenceNumber: backendBooking.referenceNumber,
   downpayment: backendBooking.downpayment,
   remainingBalance: backendBooking.remainingBalance,
-  totalNights: backendBooking.totalNights
+  roomQuantity: backendBooking.roomQuantity
 })
 
 // Computed properties
@@ -144,86 +145,97 @@ const bookingsService = {
   },
 
   // ✅ FIXED: Admin reservation creation with proper balance calculation
-  async createReservationWithPayment(reservationData) {
-    try {
-      console.log('📦 Step 1: Creating reservation with data:', reservationData)
-      
-      // IMPORTANT: Transform paymentMethod to match model enum
-      const transformedData = {
-        ...reservationData,
-        paymentMethod: reservationData.paymentMethod === 'gcash' ? 'GCash' : 'Cash'
-      }
-      
-      console.log('🔄 Transformed data:', transformedData)
-      
-      // Step 1: Create reservation
-      const reservationResponse = await adminClient.post('/createReservation', transformedData)
-      
-      console.log('✅ Step 1 complete - Reservation response:', reservationResponse.data)
-      
-      if (!reservationResponse.data.success) {
-        throw new Error(reservationResponse.data.message || 'Failed to create reservation')
-      }
-      
-      const reservationId = reservationResponse.data.reservationId || reservationResponse.data.data?.reservationId
-      console.log('📋 Reservation ID created:', reservationId)
-      
-      // Step 2: Create payment ONLY for GCash payments
-      let paymentResponse = null
-      
-      if (reservationData.paymentMethod === 'gcash') {
-        console.log('💰 GCash payment detected - creating payment record')
-        
-        // ✅ FIXED: Calculate amount and balance correctly
-        const isDownpayment = reservationData.paymentType === 'down'
-        const amount = isDownpayment ? reservationData.downpayment : reservationData.total
-        const balance = isDownpayment ? reservationData.remainingBalance : 0
-        
-        console.log('💰 Payment calculation:')
-        console.log(`   Total: ₱${reservationData.total}`)
-        console.log(`   Payment Type: ${isDownpayment ? 'Downpayment' : 'Full Payment'}`)
-        console.log(`   Amount Paying: ₱${amount}`)
-        console.log(`   Balance After Payment: ₱${balance}`)
-        
-        const paymentPayload = {
-          guestName: reservationData.fullName,
-          email: reservationData.email,
-          phoneNumber: reservationData.phoneNumber,
-          roomName: reservationData.roomName,
-          amount: amount,  // Amount being paid NOW
-          balance: balance,  // ✅ FIXED: Balance AFTER this payment
-          paymentMethod: 'GCash',
-          referenceNumber: reservationData.rfrncNumber || '',
-          paymentType: isDownpayment ? 'Downpayment' : 'Full Payment',
-          status: 'Paid',
-          notes: reservationData.request || ''
-        }
-        
-        console.log('💰 Sending payment payload:', paymentPayload)
-        
-        paymentResponse = await adminClient.post(`/admin/createPayment/${reservationId}`, paymentPayload)
-        console.log('✅ Step 2 complete - Payment response:', paymentResponse.data)
-      } else {
-        console.log('💵 Cash payment detected - no payment record created')
-      }
-      
-      return {
-        success: true,
-        reservation: reservationResponse.data.data,
-        payment: paymentResponse?.data?.data || null,
-        reservationId: reservationId,
-        paymentMethod: reservationData.paymentMethod,
-        paymentType: reservationData.paymentType
-      }
-      
-    } catch (error) {
-      console.error('❌ Error in createReservationWithPayment:')
-      console.error('Error message:', error.message)
-      console.error('Error response:', error.response?.data)
-      console.error('Error status:', error.response?.status)
-      throw error
+// In bookingService.js - update createReservationWithPayment method
+
+async createReservationWithPayment(reservationData) {
+  try {
+    console.log('📦 Step 1: Creating reservation with data:', reservationData)
+    
+    // ✅ Ensure paymentMethod is capitalized correctly
+    const transformedData = {
+      ...reservationData,
+      paymentMethod: reservationData.paymentMethod === 'Gcash' || reservationData.paymentMethod === 'GCash' 
+        ? 'GCash' 
+        : 'Cash',
+      // Make sure roomQuantity is included
+      roomQuantity: reservationData.roomQuantity || 1
     }
-  },
+    
+    console.log('🔄 Sending to backend:', transformedData)
+    
+    // Step 1: Create reservation
+    const reservationResponse = await adminClient.post('/createReservation', transformedData)
+    
+    console.log('✅ Step 1 complete - Reservation response:', reservationResponse.data)
+    
+    if (!reservationResponse.data.success) {
+      throw new Error(reservationResponse.data.message || 'Failed to create reservation')
+    }
+    
+    const reservationId = reservationResponse.data.reservationId || reservationResponse.data.data?.reservationId
+    console.log('📋 Reservation ID created:', reservationId)
+    
+    // Step 2: Create payment ONLY for GCash payments
+    let paymentResponse = null
+    
+    if (reservationData.paymentMethod === 'Gcash' || reservationData.paymentMethod === 'GCash') {
+      console.log('💰 GCash payment detected - creating payment record')
+      
+      const isDownpayment = reservationData.paymentType === 'Downpayment'
+      const totalAmount = reservationData.totalAmount
+      const amount = isDownpayment ? reservationData.downpayment : totalAmount
+      const balance = isDownpayment ? reservationData.remainingBalance : 0
+      
+      console.log('💰 Payment calculation:')
+      console.log(`   Total: ₱${totalAmount}`)
+      console.log(`   Payment Type: ${isDownpayment ? 'Downpayment' : 'Full Payment'}`)
+      console.log(`   Amount Paying: ₱${amount}`)
+      console.log(`   Balance After Payment: ₱${balance}`)
+      
+      // Include quantity in room name for display
+      const roomDisplay = reservationData.roomQuantity > 1 
+        ? `${reservationData.roomName} x${reservationData.roomQuantity}`
+        : reservationData.roomName
+      
+      const paymentPayload = {
+        guestName: reservationData.fullName,
+        email: reservationData.email,
+        phoneNumber: reservationData.phoneNumber,
+        roomName: roomDisplay,
+        amount: amount,
+        balance: balance,
+        paymentMethod: 'GCash',
+        referenceNumber: reservationData.referenceNumber || reservationData.rfrncNumber || '',
+        paymentType: isDownpayment ? 'Downpayment' : 'Full Payment',
+        status: 'Paid',
+        notes: reservationData.request || reservationData.notes || ''
+      }
+      
+      console.log('💰 Sending payment payload:', paymentPayload)
+      
+      paymentResponse = await adminClient.post(`/admin/createPayment/${reservationId}`, paymentPayload)
+      console.log('✅ Step 2 complete - Payment response:', paymentResponse.data)
+    } else {
+      console.log('💵 Cash payment detected - no payment record created')
+    }
+    
+    return {
+      success: true,
+      reservation: reservationResponse.data.data,
+      payment: paymentResponse?.data?.data || null,
+      reservationId: reservationId,
+      paymentMethod: reservationData.paymentMethod,
+      paymentType: reservationData.paymentType
+    }
+    
+  } catch (error) {
+    console.error('❌ Error in createReservationWithPayment:')
+    console.error('Error message:', error.message)
+    console.error('Error response:', error.response?.data)
+    console.error('Error status:', error.response?.status)
+    throw error
+  }
+},
 
   async updateBookingStatus(id, status) {
     try {

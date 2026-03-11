@@ -13,9 +13,9 @@
         </div>
 
         <form @submit.prevent="handleSubmit" class="modal-body">
-          <!-- Guest Information -->
+          <!-- STEP 1: Guest Information -->
           <div class="form-section">
-            <h3>Guest Information</h3>
+            <h3>Step 1: Guest Information</h3>
             
             <div class="form-row">
               <div class="form-group">
@@ -67,184 +67,262 @@
             </div>
           </div>
 
-          <!-- Room Selection -->
+          <!-- STEP 2: Select Date and Reservation Type -->
           <div class="form-section">
-            <h3>Select Room</h3>
+            <h3>Step 2: Select Date & Reservation Type</h3>
             
+            <div class="form-row">
+              <!-- Reservation Type -->
+              <div class="form-group">
+                <label for="reservationType">Reservation Type *</label>
+                <select 
+                  id="reservationType" 
+                  v-model="formData.reservationType" 
+                  required
+                  @change="handleReservationTypeChange"
+                >
+                  <option value="Day Time">Day Time (6AM - 6PM)</option>
+                  <option value="Night Time">Night Time (6PM - 6AM)</option>
+                  <option value="Full Day">Full Day (24 Hours)</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="status">Status *</label>
+                <select id="status" v-model="formData.status" required>
+                  <option value="Pending">Pending</option>
+                  <option value="Confirmed">Confirmed</option>
+                  <option value="Checked-in">Checked-in</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Calendar for Date Selection -->
+            <div class="calendar-section">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <label class="calendar-label">Select Date *</label>
+                <small v-if="dateError" class="error-message">{{ dateError }}</small>
+              </div>
+
+              <!-- Month Navigation -->
+              <div class="calendar-header">
+                <button type="button" class="calendar-nav" @click="prevMonth">←</button>
+                <span class="calendar-month">{{ currentMonthName }} {{ currentYear }}</span>
+                <button type="button" class="calendar-nav" @click="nextMonth">→</button>
+              </div>
+
+              <!-- Day Names -->
+              <div class="calendar-weekdays">
+                <div v-for="day in weekdays" :key="day" class="weekday">{{ day }}</div>
+              </div>
+
+              <!-- Calendar Days -->
+              <div class="calendar-days">
+                <!-- Empty cells -->
+                <div v-for="n in startDay" :key="'empty-'+n" class="calendar-day empty"></div>
+                
+                <!-- Actual days -->
+                <div 
+                  v-for="day in daysInMonth" 
+                  :key="day"
+                  class="calendar-day"
+                  :class="getDateClasses(day)"
+                  @click="selectDate(day)"
+                >
+                  {{ day }}
+                  <span v-if="!isPastDate(formatDateString(day))" class="availability-indicator">
+                    {{ getDateAvailabilitySummary(day) }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- Selected Date Display -->
+              <div v-if="formData.bookingDate" class="selected-date-display">
+                <span class="selected-label">Selected:</span>
+                <span class="selected-value">{{ formatDisplayDate(formData.bookingDate) }}</span>
+                <button type="button" class="clear-date" @click="clearDate">✕</button>
+              </div>
+            </div>
+
+            <!-- Date Summary -->
+            <div v-if="formData.bookingDate" class="date-summary">
+              <div class="summary-stats">
+                <div class="stat">
+                  <span class="stat-label">Total Available:</span>
+                  <span class="stat-value">{{ getTotalAvailableForDate }}</span>
+                </div>
+                <div class="stat">
+                  <span class="stat-label">Total Capacity:</span>
+                  <span class="stat-value">{{ getTotalCapacity() }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- STEP 3: Room Selection (Only shown after date is selected) -->
+          <div v-if="formData.bookingDate" class="form-section">
+            <h3>Step 3: Select Available Room</h3>
+            
+            <!-- Availability hint -->
+            <div class="availability-hint" :class="{ 
+              'has-blocked': hasBlockedRooms,
+              'loading': isLoadingReservations 
+            }">
+              <span class="hint-icon">{{ isLoadingReservations ? '⏳' : '🏨' }}</span>
+              <span class="hint-text">{{ roomsAvailabilityHint }}</span>
+            </div>
+
+            <!-- Room Grid with Quantity Selection -->
             <div class="room-grid">
               <div
-                v-for="room in rooms"
+                v-for="room in roomsWithAvailability"
                 :key="room.id"
                 class="room-card"
                 :class="{ 
-                  selected: formData.roomId === room.id,
-                  unavailable: !room.available
+                  selected: selectedRoomIds.includes(room.id),
+                  'partially-available': room.availableQuantity > 0 && room.availableQuantity < room.quantity,
+                  'unavailable': !room.isAvailable
                 }"
-                @click="selectRoom(room)"
+                @click="toggleRoomSelection(room)"
               >
                 <div class="room-icon">{{ room.icon }}</div>
                 <div class="room-info">
                   <h4>{{ room.name }}</h4>
                   <p class="capacity">{{ room.capacity }}</p>
-                  <p class="price">₱{{ room.price.toLocaleString() }}/night</p>
-                  <span v-if="!room.available" class="unavailable-badge">Unavailable</span>
+                  <p class="price">₱{{ room.price.toLocaleString() }}</p>
+                  
+                  <!-- Availability badge -->
+                  <div 
+                    class="availability-badge" 
+                    :class="{
+                      success: room.isAvailable && room.availableQuantity === room.quantity,
+                      warning: room.isAvailable && room.availableQuantity < room.quantity,
+                      unavailable: !room.isAvailable
+                    }"
+                  >
+                    <span v-if="!room.isAvailable">🔴 Unavailable</span>
+                    <span v-else>{{ room.availableQuantity }}/{{ room.quantity }} available</span>
+                  </div>
+
+                  <!-- Quantity Selector - Only show for rooms with multiple units and availability -->
+                  <div v-if="room.isAvailable && room.quantity > 1" class="quantity-selector">
+                    <button 
+                      type="button" 
+                      class="quantity-btn"
+                      :disabled="getSelectedQuantity(room.id) <= 0"
+                      @click.stop="decrementQuantity(room)"
+                    >−</button>
+                    <span class="quantity-value">{{ getSelectedQuantity(room.id) }}</span>
+                    <button 
+                      type="button" 
+                      class="quantity-btn"
+                      :disabled="getSelectedQuantity(room.id) >= room.availableQuantity"
+                      @click.stop="incrementQuantity(room)"
+                    >+</button>
+                  </div>
                 </div>
-                <div v-if="formData.roomId === room.id" class="check-icon">✓</div>
+                <div v-if="selectedRoomIds.includes(room.id)" class="check-icon">✓</div>
               </div>
             </div>
 
-            <p v-if="!selectedRoom" class="help-text">Please select a room to continue</p>
+            <!-- Selected Rooms Summary -->
+            <div v-if="selectedRooms.length > 0" class="selected-rooms-summary">
+              <h4>Selected Rooms:</h4>
+              <div v-for="room in selectedRooms" :key="room.id" class="selected-room-item">
+                <span>{{ room.name }} x{{ room.quantity }}</span>
+                <span>₱{{ (room.price * room.quantity).toLocaleString() }}</span>
+              </div>
+            </div>
+
+            <p v-if="selectedRooms.length === 0 && roomsWithAvailability.filter(r => r.isAvailable).length === 0" class="no-rooms-message">
+              ⚠️ No rooms available for <strong>{{ formatDisplayDate(formData.bookingDate) }}</strong> - <strong>{{ formData.reservationType }}</strong>
+              <br>
+              <small>Try selecting a different date or reservation type.</small>
+            </p>
+            <p v-else-if="selectedRooms.length === 0" class="help-text">Please select at least one room to continue</p>
           </div>
 
-          <!-- Booking Details -->
-         <!-- Booking Details -->
-<div v-if="selectedRoom" class="form-section">
-  <h3>Booking Details</h3>
-  
-  <!-- Availability hint -->
-  <div v-if="selectedRoom" class="availability-hint" :class="{ 
-    'has-blocked': getBlockedDatesForRoom.size > 0,
-    'loading': isLoadingReservations 
-  }">
-    <span class="hint-icon">{{ isLoadingReservations ? '⏳' : '📅' }}</span>
-    <span class="hint-text">{{ availableDatesHint }}</span>
-  </div>
-  
-  <div class="form-row">
-    <div class="form-group">
-      <label for="checkIn">Check-in Date *</label>
-      <input
-        id="checkIn"
-        v-model="formData.checkIn"
-        type="date"
-        required
-        :min="minCheckInDate"
-        @change="handleCheckInChange"
-        :class="{ 'error-input': checkInError }"
-      />
-      <small v-if="checkInError" class="error-message">{{ checkInError }}</small>
-    </div>
+          <!-- STEP 4: Payment Details (Only shown after rooms are selected) -->
+          <div v-if="selectedRooms.length > 0 && formData.total > 0" class="form-section">
+            <h3>Step 4: Payment Details</h3>
+            
+            <div class="form-row">
+              <!-- Payment Type -->
+              <div v-if="formData.status != 'Checked-in'" class="form-group">
+                <label for="paymentType">Payment Type *</label>
+                <select id="paymentType" v-model="formData.paymentType" required @change="updateRemainingBalance">
+                  <option value="Downpayment">Downpayment (50%)</option>
+                  <option value="Full Payment">Full Payment</option>
+                </select>
+              </div>
 
-    <div class="form-group">
-      <label for="checkOut">Check-out Date *</label>
-      <input
-        id="checkOut"
-        v-model="formData.checkOut"
-        type="date"
-        required
-        :min="minCheckOutDate"
-        @change="handleCheckOutChange"
-        :class="{ 'error-input': checkOutError }"
-      />
-      <small v-if="checkOutError" class="error-message">{{ checkOutError }}</small>
-    </div>
-  </div>
+              <!-- Payment Method -->
+              <div class="form-group">
+                <label for="paymentMethod">Payment Method *</label>
+                <select id="paymentMethod" v-model="formData.paymentMethod" required>
+                  <option value="">Select payment method</option>
+                  <option value="Gcash">Gcash</option>
+                  <option value="Cash">Cash</option>
+                </select>
+              </div>
+            </div>
 
-  <div class="form-row">
-    <div class="form-group">
-      <label for="status">Status *</label>
-      <select id="status" v-model="formData.status" required>
-        <option value="Pending">Pending</option>
-        <option value="Confirmed">Confirmed</option>
-        <option value="Checked In">Checked In</option>
-      </select>
-    </div>
+            <!-- Reference Number - Only show for Gcash -->
+            <div class="form-row" v-if="formData.paymentMethod === 'Gcash'">
+              <div class="form-group full-width">
+                <label for="rfrncNumber">Reference Number <span class="required-star">*</span></label>
+                <input
+                  id="rfrncNumber"
+                  v-model="formData.rfrncNumber"
+                  type="text"
+                  :required="formData.paymentMethod === 'Gcash'"
+                  placeholder="Enter Gcash reference number"
+                />
+                <p class="help-text">Required for Gcash payments</p>
+              </div>
+            </div>
 
-    <div class="form-group">
-      <label>Total Nights</label>
-      <div class="readonly-field">{{ formData.totalNights || 0 }} nights</div>
-    </div>
-  </div>
-</div>
+            <div class="pricing-summary">
+              <!-- Show breakdown for each selected room -->
+              <div v-for="room in selectedRooms" :key="room.id" class="summary-row">
+                <span>{{ room.name }} x{{ room.quantity }}:</span>
+                <strong>₱{{ (room.price * room.quantity).toLocaleString() }}</strong>
+              </div>
+              
+              <div class="summary-row total">
+                <span>Total Amount:</span>
+                <strong>₱{{ formData.total.toLocaleString() }}</strong>
+              </div>
+              <div v-if="formData.paymentType === 'Downpayment'" class="summary-row">
+                <span>Downpayment (50%):</span>
+                <strong>₱{{ formData.downpayment.toLocaleString() }}</strong>
+              </div>
+              <div v-if="formData.paymentType === 'Downpayment'" class="summary-row">
+                <span>Remaining Balance:</span>
+                <strong>₱{{ formData.remainingBalance.toLocaleString() }}</strong>
+              </div>
+            </div>
+          </div>
 
-       <!-- Payment Details -->
-<div v-if="selectedRoom && formData.totalNights > 0" class="form-section">
-  <h3>Payment Details</h3>
-  
-  <div class="">
-    <div class="form-row">
-      <!-- Payment Type - Hidden when status is Checked In -->
-      <div v-if="formData.status != 'Checked In'" class="form-group" :class="{ 'full-width': formData.status === 'Checked In' }">
-        <label for="paymentType">Payment Type *</label>
-        <select id="paymentType" v-model="formData.paymentType" required>
-          <option value="Downpayment">Downpayment (50%)</option>
-          <option value="Full Payment">Full Payment</option>
-        </select>
-      </div>
-
-      <!-- Payment Method - Takes full width when Payment Type is hidden -->
-      <div class="form-group" :class="{ 'full-width': formData.status === 'Checked In' }">
-        <label for="paymentMethod">Payment Method *</label>
-        <select id="paymentMethod" v-model="formData.paymentMethod" required>
-          <option value="">Select payment method</option>
-          <option value="Gcash">Gcash</option>
-          <option value="cash">Cash</option>
-        </select>
-      </div>
-    </div>
-
-    <!-- Reference Number - Only show for Gcash -->
-    <div class="form-row" v-if="formData.paymentMethod === 'Gcash'">
-      <div class="form-group" :class="{ 'full-width': formData.status === 'Checked In' }">
-        <label for="rfrncNumber">Reference Number <span class="required-star">*</span></label>
-        <input
-          id="rfrncNumber"
-          v-model="formData.rfrncNumber"
-          type="text"
-          :required="formData.paymentMethod === 'Gcash'"
-          placeholder="Enter Gcash reference number"
-        />
-        <p class="help-text">Required for Gcash payments</p>
-      </div>
-    </div>
-  </div>
-
-  <div class="pricing-summary">
-    <div class="summary-row">
-      <span>Room Rate:</span>
-      <strong>₱{{ selectedRoom?.price?.toLocaleString() || 0 }} × {{ formData.totalNights }} nights</strong>
-    </div>
-    <div class="summary-row total">
-      <span>Total Amount:</span>
-      <strong>₱{{ formatNumber(formData.total) }}</strong>
-    </div>
-    <div v-if="formData.status != 'Checked In' && formData.paymentType === 'Downpayment'" class="summary-row">
-      <span>Downpayment (50%):</span>
-      <strong>₱{{ formatNumber(formData.downpayment) }}</strong>
-    </div>
-    <div v-if="formData.status != 'Checked In'" class="summary-row">
-      <span>Remaining Balance:</span>
-      <strong>₱{{ formatNumber(formData.remainingBalance) }}</strong>
-    </div>
-    <div v-if="formData.status != 'Checked In' && formData.paymentType === 'Full Payment'" class="summary-row paid-indicator">
-    <span>Payment Status:</span>
-    <strong class="paid-text">✓ Fully Paid</strong>
-  </div>
-  </div>
-</div>
-
-          <!-- Special Request -->
-          <div v-if="selectedRoom" class="form-section">
+          <!-- Special Requests -->
+          <div class="form-section">
+            <h3>Additional Information (Optional)</h3>
             <div class="form-group">
-              <label for="request">Special Request (Optional)</label>
               <textarea
-                id="request"
                 v-model="formData.request"
                 rows="3"
-                placeholder="Any special requests from the guest..."
+                placeholder="Any special requests or notes..."
               ></textarea>
             </div>
           </div>
 
-          <!-- Form Actions -->
+          <!-- Submit Footer -->
           <div class="modal-footer">
-            <button type="button" class="btn-cancel" @click="$emit('close')">
-              Cancel
-            </button>
+            <button type="button" class="btn-cancel" @click="$emit('close')">Cancel</button>
             <button 
               type="submit" 
               class="btn-submit" 
-              :disabled="isSubmitting || !isFormValid"
+              :disabled="!isFormValid || isSubmitting"
             >
               {{ isSubmitting ? 'Creating...' : 'Create Reservation' }}
             </button>
@@ -253,6 +331,7 @@
       </div>
     </div>
   </Transition>
+  
   <FeedbackModal
     :show="showFeedback"
     :type="feedbackType"
@@ -263,678 +342,667 @@
     @close="handleFeedbackClose"
     @confirm="handleFeedbackConfirm"
   />
-
 </template>
 
-<script setup>
+<script>
 import { ref, reactive, computed, watch, onMounted } from 'vue'
-import axios from 'axios'
-import FeedbackModal from './FeedbackModal.vue'
-import bookingsService from '@/services/bookingService' // Import the booking service
-// ✅ Import from external data file
 import { 
   rooms, 
-  BOOKING_CONFIG,
-  getRoomById,
-  calculateRoomPrice,
-  calculateDownpayment,
-  calculateRemainingBalance 
-} from '@/data/rooms'
+  BOOKING_CONFIG, 
+  calculateDownpayment, 
+  calculateRemainingBalance,
+  getAvailabilityDetails,
+  getTotalCapacity,
+  getTotalAvailableCapacity
+} from '../../../client_side/src/data/rooms'
+import bookingsService from '@/services/bookingService'
+import FeedbackModal from './FeedbackModal.vue'
 
-const props = defineProps({
-  show: {
-    type: Boolean,
-    default: false
-  }
-})
-
-const emit = defineEmits(['close', 'success'])
-
-// ==========================================
-// FEEDBACK MODAL STATE
-// ==========================================
-const showFeedback = ref(false)
-const feedbackType = ref('loading')
-const feedbackTitle = ref('')
-const feedbackMessage = ref('')
-const feedbackDetails = ref(null)
-
-// ==========================================
-// DATE BLOCKING STATE
-// ==========================================
-const existingReservations = ref([])
-const isLoadingReservations = ref(false)
-const dateError = ref('')
-const checkInError = ref('')
-const checkOutError = ref('')
-
-// ==========================================
-// STATE
-// ==========================================
-const isSubmitting = ref(false)
-
-const formData = reactive({
-  fullName: '',
-  email: '',
-  phoneNumber: '',
-  guests: 1,
-  roomId: null,
-  roomName: '',
-  checkIn: '',
-  checkOut: '',
-  paymentType: 'Downpayment',
-  paymentMethod: '',
-  rfrncNumber: '',
-  total: 0,
-  downpayment: 0,
-  remainingBalance: 0,
-  totalNights: 0,
-  request: '',
-  status: 'Confirmed'
-})
-
-// ==========================================
-// FEEDBACK METHODS
-// ==========================================
-const showLoadingFeedback = (message = 'Processing your reservation...') => {
-  feedbackType.value = 'loading'
-  feedbackTitle.value = 'Please wait'
-  feedbackMessage.value = message
-  feedbackDetails.value = null
-  showFeedback.value = true
-}
-
-const showSuccessFeedback = (title, message, details = null) => {
-  feedbackType.value = 'success'
-  feedbackTitle.value = title
-  feedbackMessage.value = message
-  feedbackDetails.value = details
-}
-
-const showErrorFeedback = (title, message, details = null) => {
-  feedbackType.value = 'error'
-  feedbackTitle.value = title
-  feedbackMessage.value = message
-  feedbackDetails.value = details
-}
-
-const handleFeedbackClose = () => {
-  showFeedback.value = false
-}
-
-const handleFeedbackConfirm = () => {
-  if (feedbackType.value === 'success') {
-    emit('success')
-    emit('close')
-  }
-  showFeedback.value = false
-}
-
-// ==========================================
-// FETCH EXISTING RESERVATIONS
-// ==========================================
-const fetchExistingReservations = async () => {
-  isLoadingReservations.value = true
-  try {
-    await bookingsService.fetchBookings()
-    existingReservations.value = bookingsService.bookings
-    console.log('📋 Fetched existing reservations:', existingReservations.value.length)
-  } catch (error) {
-    console.error('Error fetching reservations:', error)
-  } finally {
-    isLoadingReservations.value = false
-  }
-}
-
-// Watch for modal open to fetch reservations
-watch(() => props.show, async (newVal) => {
-  if (newVal) {
-    await fetchExistingReservations()
-    resetForm()
-  }
-})
-
-// ==========================================
-// DATE BLOCKING FUNCTIONS
-// ==========================================
-
-// Get all blocked dates for the selected room
-const getBlockedDatesForRoom = computed(() => {
-  if (!selectedRoom.value || !existingReservations.value.length) {
-    return new Set()
-  }
+export default {
+  name: 'CreateReservationModal',
+  components: {
+    FeedbackModal
+  },
+  props: {
+    show: {
+      type: Boolean,
+      default: false
+    }
+  },
+  emits: ['close', 'success', 'created'],
   
-  const blockedDates = new Set()
-  const roomReservations = existingReservations.value.filter(
-    res => res.room === selectedRoom.value.name // Use 'room' field from transformed data
-  )
-  
-  roomReservations.forEach(reservation => {
-    const start = new Date(reservation.checkIn)
-    const end = new Date(reservation.checkOut)
+  setup(props, { emit }) {
+    // ==========================================
+    // STATE
+    // ==========================================
+    const isSubmitting = ref(false)
+    const isLoadingReservations = ref(false)
+    const dateError = ref('')
     
-    // Add all dates between check-in and check-out (excluding check-out day)
-    const current = new Date(start)
-    while (current < end) {
-      blockedDates.add(current.toISOString().split('T')[0])
-      current.setDate(current.getDate() + 1)
-    }
-  })
-  
-  return blockedDates
-})
-
-// Check if a specific date is blocked
-const isDateBlocked = (dateString) => {
-  if (!selectedRoom.value) return false
-  return getBlockedDatesForRoom.value.has(dateString)
-}
-
-// Check if any date in a range is blocked
-const hasBlockedDatesInRange = (startDate, endDate) => {
-  if (!selectedRoom.value || !startDate || !endDate) return false
-  
-  const blockedDates = getBlockedDatesForRoom.value
-  const start = new Date(startDate)
-  const end = new Date(endDate)
-  
-  const current = new Date(start)
-  while (current < end) {
-    if (blockedDates.has(current.toISOString().split('T')[0])) {
-      return true
-    }
-    current.setDate(current.getDate() + 1)
-  }
-  
-  return false
-}
-
-// Validate check-in date
-const validateCheckIn = (date) => {
-  if (!selectedRoom.value) return true
-  
-  if (isDateBlocked(date)) {
-    checkInError.value = 'This date is not available. Please select another date.'
-    dateError.value = 'This date is not available. Please select another date.'
-    return false
-  }
-  
-  checkInError.value = ''
-  dateError.value = ''
-  return true
-}
-
-// Validate check-out date
-const validateCheckOut = (checkIn, checkOut) => {
-  if (!selectedRoom.value || !checkIn || !checkOut) return true
-  
-  if (hasBlockedDatesInRange(checkIn, checkOut)) {
-    checkOutError.value = 'Your selected dates overlap with an existing reservation'
-    dateError.value = 'Your selected dates overlap with an existing reservation'
-    return false
-  }
-  
-  checkOutError.value = ''
-  dateError.value = ''
-  return true
-}
-
-// ==========================================
-// COMPUTED
-// ==========================================
-// ... keep all your existing imports and state ...
-
-// ==========================================
-// COMPUTED
-// ==========================================
-
-// Selected room (using helper function)
-const selectedRoom = computed(() => {
-  if (!formData.roomId) return null
-  return getRoomById(formData.roomId)
-})
-
-// Calculate downpayment based on total
-const calculatedDownpayment = computed(() => {
-  return calculateDownpayment(formData.total)
-})
-
-// Calculate remaining balance based on payment type
-const calculatedRemainingBalance = computed(() => {
-  if (formData.paymentType === 'Full Payment') {
-    return 0
-  } else {
-    // For downpayment, remaining is total - downpayment
-    return formData.total - calculatedDownpayment.value
-  }
-})
-
-// Form validation
-const isFormValid = computed(() => {
-  const basicValid = formData.fullName &&
-         formData.email &&
-         formData.phoneNumber &&
-         formData.roomId &&
-         formData.checkIn &&
-         formData.checkOut &&
-         formData.totalNights > 0 &&
-         formData.paymentMethod &&
-         !dateError.value
-  
-  // If Gcash is selected, reference number is required
-  if (formData.paymentMethod === 'Gcash') {
-    return basicValid && formData.rfrncNumber && formData.rfrncNumber.trim() !== ''
-  }
-
-  return basicValid
-})
-
-// Availability hint text
-const availableDatesHint = computed(() => {
-  if (!selectedRoom.value) return ''
-  if (isLoadingReservations.value) return 'Checking availability...'
-  
-  const blockedCount = getBlockedDatesForRoom.value.size
-  if (blockedCount === 0) return 'All dates are available for this room'
-  return `${blockedCount} date${blockedCount > 1 ? 's are' : ' is'} already booked for this room`
-})
-
-// Minimum check-in date (today)
-const minCheckInDate = computed(() => {
-  try {
-    const today = new Date()
-    if (isNaN(today.getTime())) {
-      return ''
-    }
-    return today.toISOString().split('T')[0]
-  } catch (error) {
-    console.error('Error calculating min check-in date:', error)
-    return ''
-  }
-})
-
-// Minimum check-out date (1 day after check-in)
-const minCheckOutDate = computed(() => {
-  if (!formData.checkIn) return ''
-  
-  try {
-    const checkIn = new Date(formData.checkIn)
-    if (isNaN(checkIn.getTime())) return ''
+    // Calendar state
+    const currentDate = new Date()
+    const currentMonth = ref(currentDate.getMonth())
+    const currentYear = ref(currentDate.getFullYear())
     
-    checkIn.setDate(checkIn.getDate() + 1)
-    return checkIn.toISOString().split('T')[0]
-  } catch (error) {
-    console.error('Error calculating min checkout date:', error)
-    return ''
-  }
-})
+    // Selected rooms with quantities
+    const selectedRoomsMap = ref(new Map()) // roomId -> quantity
 
-// ==========================================
-// METHODS
-// ==========================================
+    const formData = reactive({
+      fullName: '',
+      email: '',
+      phoneNumber: '',
+      guests: 1,
+      reservationType: 'Day Time',
+      status: 'Pending',
+      bookingDate: '',
+      total: 0,
+      paymentType: 'Downpayment',
+      paymentMethod: '',
+      rfrncNumber: '',
+      downpayment: 0,
+      remainingBalance: 0,
+      request: ''
+    })
 
-const selectRoom = (room) => {
-  if (!room.available) return
-  
-  formData.roomId = room.id
-  formData.roomName = room.name
-  
-  // Reset dates when room changes
-  formData.checkIn = ''
-  formData.checkOut = ''
-  formData.totalNights = 0
-  dateError.value = ''
-  checkInError.value = ''
-  checkOutError.value = ''
-  
-  // Reset payment values
-  formData.total = 0
-  formData.downpayment = 0
-  formData.remainingBalance = 0
-}
+    // Store existing reservations
+    const existingReservations = ref([])
 
-const handleCheckInChange = () => {
-  try {
-    // Validate check-in date
-    if (formData.checkIn && !validateCheckIn(formData.checkIn)) {
-      formData.checkIn = ''
-      formData.totalNights = 0
-      return
-    }
+    // Feedback modal state
+    const showFeedback = ref(false)
+    const feedbackType = ref('success')
+    const feedbackTitle = ref('')
+    const feedbackMessage = ref('')
+    const feedbackDetails = ref(null)
+
+    // ==========================================
+    // COMPUTED - CALENDAR
+    // ==========================================
+    const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
     
-    // Reset check-out if it's before new check-in
-    if (formData.checkOut && formData.checkIn) {
-      const checkIn = new Date(formData.checkIn)
-      const checkOut = new Date(formData.checkOut)
-      
-      if (!isNaN(checkIn.getTime()) && !isNaN(checkOut.getTime()) && checkOut <= checkIn) {
-        formData.checkOut = ''
-        formData.totalNights = 0
-      }
-    }
+    const currentMonthName = computed(() => {
+      return new Date(currentYear.value, currentMonth.value).toLocaleDateString('en-US', { month: 'long' })
+    })
     
-    calculateNights()
-  } catch (error) {
-    console.error('Error in handleCheckInChange:', error)
-  }
-}
+    const daysInMonth = computed(() => {
+      return new Date(currentYear.value, currentMonth.value + 1, 0).getDate()
+    })
+    
+    const startDay = computed(() => {
+      return new Date(currentYear.value, currentMonth.value, 1).getDay()
+    })
 
-const handleCheckOutChange = () => {
-  // Validate check-out date range
-  if (formData.checkIn && formData.checkOut) {
-    if (!validateCheckOut(formData.checkIn, formData.checkOut)) {
-      formData.checkOut = ''
-      formData.totalNights = 0
-      return
-    }
-  }
-  calculateNights()
-}
-
-const calculateNights = () => {
-  if (formData.checkIn && formData.checkOut) {
-    try {
-      // Validate that dates don't overlap with existing reservations
-      if (!validateCheckOut(formData.checkIn, formData.checkOut)) {
-        formData.totalNights = 0
-        return
+    // ==========================================
+    // COMPUTED - ROOM AVAILABILITY
+    // ==========================================
+    
+    // Get availability details for selected date
+    const roomsWithAvailability = computed(() => {
+      if (!formData.bookingDate || !formData.reservationType) {
+        return rooms.map(room => ({
+          ...room,
+          availableQuantity: room.quantity || 1,
+          isAvailable: true,
+          hasFullDay: false,
+          hasDayTime: false,
+          hasNightTime: false,
+          dayTimeCount: 0,
+          nightTimeCount: 0,
+          fullDayCount: 0
+        }))
       }
       
-      const checkIn = new Date(formData.checkIn)
-      const checkOut = new Date(formData.checkOut)
-      
-      // Validate dates
-      if (isNaN(checkIn.getTime()) || isNaN(checkOut.getTime())) {
-        formData.totalNights = 0
-        return
+      return getAvailabilityDetails(formData.bookingDate, formData.reservationType, existingReservations.value)
+    })
+
+    // Check if there are any blocked rooms
+    const hasBlockedRooms = computed(() => {
+      return roomsWithAvailability.value.some(room => !room.isAvailable)
+    })
+
+    // Rooms availability hint
+    const roomsAvailabilityHint = computed(() => {
+      if (isLoadingReservations.value) {
+        return 'Loading availability...'
       }
       
-      const diffTime = checkOut - checkIn
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+      const availableCount = roomsWithAvailability.value.filter(r => r.isAvailable).length
+      const totalCount = rooms.length
       
-      if (diffDays > 0) {
-        formData.totalNights = diffDays
-        calculatePricing()
+      if (availableCount === 0) {
+        return 'No rooms available for this date and reservation type'
+      } else if (availableCount < totalCount) {
+        return `${availableCount} out of ${totalCount} rooms available`
       } else {
-        formData.totalNights = 0
-        dateError.value = 'Check-out date must be after check-in date'
+        return 'All rooms are available'
       }
-    } catch (error) {
-      console.error('Error calculating nights:', error)
-      formData.totalNights = 0
-    }
-  }
-}
+    })
 
-const calculatePricing = () => {
-  if (!selectedRoom.value || formData.totalNights === 0) {
-    formData.total = 0
-    formData.downpayment = 0
-    formData.remainingBalance = 0
-    return
-  }
-  
-  // Calculate total
-  const total = calculateRoomPrice(formData.roomId, formData.totalNights)
-  formData.total = total
-  
-  // Calculate downpayment
-  formData.downpayment = calculateDownpayment(total)
-  
-  // Calculate remaining balance based on payment type
-  updateRemainingBalance()
-}
+    // Selected room IDs
+    const selectedRoomIds = computed(() => {
+      return Array.from(selectedRoomsMap.value.keys())
+    })
 
-// New function to update remaining balance based on payment type
-const updateRemainingBalance = () => {
-  if (formData.paymentType === 'Full Payment') {
-    formData.remainingBalance = 0
-  } else {
-    formData.remainingBalance = formData.total - formData.downpayment
-  }
-}
-
-// Watch for payment type changes
-watch(() => formData.paymentType, () => {
-  updateRemainingBalance()
-})
-
-// Watch for total changes (in case it's updated elsewhere)
-watch(() => formData.total, () => {
-  updateRemainingBalance()
-})
-
-const formatNumber = (num) => {
-  if (num === undefined || num === null) return '0'
-  return num.toLocaleString('en-PH')
-}
-
-const handleOverlayClick = () => {
-  emit('close')
-}
-
-// In handleSubmit
-// In createModal.vue - update the handleSubmit function
-
-const handleSubmit = async () => {
-  if (!isFormValid.value) {
-    return
-  }
-  
-  showLoadingFeedback('Creating your reservation...')
-  isSubmitting.value = true
-  
-  try {
-     // Map payment method to match model enum
-    const paymentMethod = formData.paymentMethod === 'gcash' ? 'GCash' : 'Cash'
-    
-    const reservationData = {
-      fullName: formData.fullName,
-      email: formData.email,
-      phoneNumber: formData.phoneNumber,
-      guests: formData.guests,
-      checkIn: formData.checkIn,
-      checkOut: formData.checkOut,
-      request: formData.request || "",
-      paymentType: formData.paymentType,
-      paymentMethod: paymentMethod, // Now 'GCash' or 'Cash'
-      roomId: formData.roomId,
-      roomName: formData.roomName,
-      total: formData.total,
-      status: formData.status || "Pending",
-      rfrncNumber: formData.paymentMethod === 'gcash' ? formData.rfrncNumber : '',
-      totalNights: formData.totalNights,
-      downpayment: formData.downpayment,
-      remainingBalance: formData.remainingBalance
-    }
-    
-    console.log('📦 Sending reservation data:', reservationData)
-    
-    const result = await bookingsService.createReservationWithPayment(reservationData)
-    
-    if (result.success) {
-      // Determine payment status message
-      let paymentStatusMessage = ''
-      let amountPaid = 0
-      
-      if (formData.paymentMethod === 'Gcash') {
-        amountPaid = formData.paymentType === 'Downpayment' ?  formData.downpayment : formData.total
-        paymentStatusMessage = 'Paid via Gcash'
-      } else {
-        // Cash payment
-        if (formData.paymentType === 'Full Payment') {
-          amountPaid = formData.total
-          // paymentStatusMessage = 'Full amount to be paid at check-in'
-        } else {
-          amountPaid = formData.downpayment
-          // paymentStatusMessage = 'Downpayment to be paid at check-in'
+    // Selected rooms with quantities
+    const selectedRooms = computed(() => {
+      const selected = []
+      for (const [roomId, quantity] of selectedRoomsMap.value.entries()) {
+        if (quantity > 0) {
+          const room = roomsWithAvailability.value.find(r => r.id === roomId)
+          if (room) {
+            selected.push({
+              ...room,
+              quantity
+            })
+          }
         }
       }
-      
-      // Prepare details based on payment method and type
-      const details = {
-        'Reservation ID': result.reservationId,
-        'Guest Name': formData.fullName,
-        'Room': formData.roomName,
-        'Check-in': formData.checkIn,
-        'Check-out': formData.checkOut,
-        'Total Nights': formData.totalNights,
-        'Total Amount': `₱${formatNumber(formData.total)}`,
-        'Payment Method': formData.paymentMethod === 'Gcash' ? 'Gcash' : 'Cash',
-        'Payment Type': formData.paymentType === 'Downpayment' ? 'Downpayment (50%)' : 'Full Payment',
-      }
+      return selected
+    })
 
-      // Add payment-specific details
-      if (formData.paymentMethod === 'Gcash') {
-        details['Amount Paid'] = `₱${formatNumber(amountPaid)}`
-        details['Reference Number'] = formData.rfrncNumber
-        details['Payment Status'] = 'Paid'
-      } else {
-        details['Amount Paid'] = `₱${formatNumber(amountPaid)}`
-        details['Payment Status'] = paymentStatusMessage
-      }
-      
-      // Only show remaining balance for downpayment
-      if (formData.paymentType === 'Downpayment') {
-        details['Remaining Balance'] = `₱${formatNumber(formData.remainingBalance)}`
-      }
+    // Total amount calculation with proper fallback
+    const totalAmount = computed(() => {
+      return selectedRooms.value.reduce((sum, room) => {
+        const roomPrice = room.price || 0
+        return sum + (roomPrice * room.quantity)
+      }, 0)
+    })
 
-      // Custom success message based on payment type
-      let successMessage = ''
-      if (formData.paymentMethod === 'Gcash') {
-        successMessage = 'Reservation and payment have been successfully recorded.'
-      } else {
-        if (formData.paymentType === 'Full Payment') {
-          successMessage = 'Reservation created successfully. Full payment will be collected at check-in.'
-        } else {
-          successMessage = 'Reservation created successfully. Downpayment will be collected at check-in.'
-        }
-      }
-
-      showSuccessFeedback(
-        'Reservation Created!',
-        successMessage,
-        details
+    // Form validation
+    const isFormValid = computed(() => {
+      return (
+        formData.fullName &&
+        formData.email &&
+        formData.phoneNumber &&
+        formData.guests > 0 &&
+        formData.reservationType &&
+        formData.status &&
+        formData.bookingDate &&
+        selectedRooms.value.length > 0 &&
+        formData.paymentMethod &&
+        (formData.paymentMethod !== 'Gcash' || formData.rfrncNumber)
       )
+    })
+
+    // Total available for date
+    const getTotalAvailableForDate = computed(() => {
+      if (!formData.bookingDate) return 0
+      return getTotalAvailableCapacity(formData.bookingDate, formData.reservationType, existingReservations.value)
+    })
+
+    // ==========================================
+    // QUANTITY MANAGEMENT
+    // ==========================================
+    
+    function getSelectedQuantity(roomId) {
+      return selectedRoomsMap.value.get(roomId) || 0
+    }
+
+    function incrementQuantity(room) {
+      const currentQty = selectedRoomsMap.value.get(room.id) || 0
+      if (currentQty < room.availableQuantity) {
+        selectedRoomsMap.value.set(room.id, currentQty + 1)
+        updateTotal()
+      }
+    }
+
+    function decrementQuantity(room) {
+      const currentQty = selectedRoomsMap.value.get(room.id) || 0
+      if (currentQty > 0) {
+        if (currentQty === 1) {
+          selectedRoomsMap.value.delete(room.id)
+        } else {
+          selectedRoomsMap.value.set(room.id, currentQty - 1)
+        }
+        updateTotal()
+      }
+    }
+
+    function toggleRoomSelection(room) {
+      if (!room.isAvailable) return
       
-      await fetchExistingReservations()
-      resetForm()
+      const currentQty = getSelectedQuantity(room.id)
+      
+      if (currentQty === 0) {
+        // Select the room with quantity 1
+        selectedRoomsMap.value.set(room.id, 1)
+      } else {
+        // Deselect the room
+        selectedRoomsMap.value.delete(room.id)
+      }
+      updateTotal()
     }
-  } catch (error) {
-    console.error('Error in handleSubmit:', error)
-    showErrorFeedback(
-      'Reservation Failed',
-      error.response?.data?.message || error.message || 'Failed to create reservation'
-    )
-  } finally {
-    isSubmitting.value = false
+
+    function updateTotal() {
+      const total = totalAmount.value
+      formData.total = isNaN(total) ? 0 : total
+      updateRemainingBalance()
+    }
+
+    function clearSelectedRooms() {
+      selectedRoomsMap.value.clear()
+      formData.total = 0
+      formData.downpayment = 0
+      formData.remainingBalance = 0
+    }
+
+    // ==========================================
+    // CALENDAR METHODS
+    // ==========================================
+    
+    function prevMonth() {
+      if (currentMonth.value === 0) {
+        currentMonth.value = 11
+        currentYear.value--
+      } else {
+        currentMonth.value--
+      }
+    }
+    
+    function nextMonth() {
+      if (currentMonth.value === 11) {
+        currentMonth.value = 0
+        currentYear.value++
+      } else {
+        currentMonth.value++
+      }
+    }
+
+    function formatDateString(day) {
+      const month = String(currentMonth.value + 1).padStart(2, '0')
+      const dayStr = String(day).padStart(2, '0')
+      return `${currentYear.value}-${month}-${dayStr}`
+    }
+
+    function formatDisplayDate(dateStr) {
+      if (!dateStr) return ''
+      const date = new Date(dateStr + 'T00:00:00')
+      return date.toLocaleDateString('en-US', { 
+        weekday: 'short',
+        year: 'numeric', 
+        month: 'short', 
+        day: 'numeric' 
+      })
+    }
+
+    function isPastDate(dateStr) {
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      const checkDate = new Date(dateStr + 'T00:00:00')
+      return checkDate < today
+    }
+
+    function getDateClasses(day) {
+      const dateStr = formatDateString(day)
+      const classes = []
+      
+      if (isPastDate(dateStr)) {
+        classes.push('past')
+        return classes
+      }
+      
+      if (formData.bookingDate === dateStr) {
+        classes.push('selected')
+      }
+      
+      const totalAvailable = getTotalAvailableCapacity(dateStr, formData.reservationType, existingReservations.value)
+      const totalCapacity = getTotalCapacity()
+      
+      if (totalAvailable === 0) {
+        classes.push('fully-booked')
+      } else if (totalAvailable < totalCapacity) {
+        classes.push('partially-available')
+      }
+      
+      return classes
+    }
+
+    function getDateAvailabilitySummary(day) {
+      const dateStr = formatDateString(day)
+      
+      if (isPastDate(dateStr)) return ''
+      
+      const totalAvailable = getTotalAvailableCapacity(dateStr, formData.reservationType, existingReservations.value)
+      const totalCapacity = getTotalCapacity()
+      
+      if (totalAvailable === 0) return '⛔'
+      if (totalAvailable < totalCapacity) return `${totalAvailable}`
+      return '✓'
+    }
+
+    function selectDate(day) {
+      const dateStr = formatDateString(day)
+      
+      if (isPastDate(dateStr)) {
+        dateError.value = 'Cannot select past dates'
+        return
+      }
+      
+      dateError.value = ''
+      formData.bookingDate = dateStr
+      clearSelectedRooms()
+    }
+
+    function clearDate() {
+      formData.bookingDate = ''
+      clearSelectedRooms()
+      dateError.value = ''
+    }
+
+    // ==========================================
+    // PAYMENT METHODS
+    // ==========================================
+    
+    function updateRemainingBalance() {
+      const total = parseFloat(formData.total) || 0
+      
+      if (formData.paymentType === 'Downpayment') {
+        formData.downpayment = calculateDownpayment(total)
+        formData.remainingBalance = calculateRemainingBalance(total, formData.downpayment)
+      } else {
+        formData.downpayment = total
+        formData.remainingBalance = 0
+      }
+      
+      formData.downpayment = isNaN(formData.downpayment) ? 0 : formData.downpayment
+      formData.remainingBalance = isNaN(formData.remainingBalance) ? 0 : formData.remainingBalance
+    }
+
+    // ==========================================
+    // FEEDBACK METHODS
+    // ==========================================
+    
+    function showLoadingFeedback(message = 'Processing your reservation...') {
+      feedbackType.value = 'loading'
+      feedbackTitle.value = 'Please wait'
+      feedbackMessage.value = message
+      feedbackDetails.value = null
+      showFeedback.value = true
+    }
+
+    function showSuccessFeedback(title, message, details = null) {
+      feedbackType.value = 'success'
+      feedbackTitle.value = title
+      feedbackMessage.value = message
+      feedbackDetails.value = details
+      showFeedback.value = true
+    }
+
+    function showErrorFeedback(title, message) {
+      feedbackType.value = 'error'
+      feedbackTitle.value = title
+      feedbackMessage.value = message
+      feedbackDetails.value = null
+      showFeedback.value = true
+    }
+
+    function handleFeedbackClose() {
+      showFeedback.value = false
+    }
+
+    function handleFeedbackConfirm() {
+      if (feedbackType.value === 'success') {
+        emit('created')
+        emit('close')
+      }
+      showFeedback.value = false
+    }
+
+    // ==========================================
+    // FORM SUBMISSION
+    // ==========================================
+    
+    async function handleSubmit() {
+      if (!isFormValid.value) {
+        return
+      }
+
+      // Verify all selected rooms are still available
+      for (const room of selectedRooms.value) {
+        const currentRoom = roomsWithAvailability.value.find(r => r.id === room.id)
+        if (!currentRoom?.isAvailable || currentRoom.availableQuantity < room.quantity) {
+          showErrorFeedback('Room Not Available', 
+            `${room.name} is no longer available. Please adjust your selection.`)
+          return
+        }
+      }
+
+      isSubmitting.value = true
+      showLoadingFeedback('Creating your reservation...')
+
+      try {
+        // Group rooms by type (using room ID as identifier)
+        const roomsByType = new Map()
+        
+        selectedRooms.value.forEach(room => {
+          if (!roomsByType.has(room.id)) {
+            roomsByType.set(room.id, [])
+          }
+          roomsByType.get(room.id).push(room)
+        })
+        
+        const promises = []
+        
+        // Process each room type
+        for (const [roomId, rooms] of roomsByType.entries()) {
+          const room = rooms[0] // Get the room details from first item
+          const totalQuantity = rooms.reduce((sum, r) => sum + r.quantity, 0)
+          
+          // Calculate totals for this room type
+          const roomTotal = room.price * totalQuantity
+          const roomDownpayment = formData.paymentType === 'Downpayment' 
+            ? calculateDownpayment(roomTotal)
+            : roomTotal
+          const roomRemainingBalance = formData.paymentType === 'Downpayment'
+            ? calculateRemainingBalance(roomTotal, roomDownpayment)
+            : 0
+
+          const payload = {
+            fullName: formData.fullName,
+            email: formData.email,
+            phoneNumber: formData.phoneNumber,
+            guestQuantity: formData.guests,
+            roomName: room.name,
+            roomId: room.roomId,
+            roomQuantity: totalQuantity,
+            bookingDate: formData.bookingDate,
+            reservationType: formData.reservationType,
+            status: formData.status,
+            totalAmount: roomTotal,
+            paymentType: formData.paymentType,
+            paymentMethod: formData.paymentMethod,
+            referenceNumber: formData.rfrncNumber || '',
+            downpayment: roomDownpayment,
+            remainingBalance: roomRemainingBalance,
+            totalNights: 0,
+            request: formData.request || '',
+            notes: formData.request || ''
+          }
+          
+          console.log(`📦 Creating reservation for ${room.name} x${totalQuantity}:`, payload)
+          promises.push(bookingsService.createReservationWithPayment(payload))
+        }
+
+        const results = await Promise.all(promises)
+        const allSuccessful = results.every(r => r.success)
+
+        if (allSuccessful) {
+          const amountPaid = formData.paymentType === 'Downpayment' ? formData.downpayment : formData.total
+          
+          const details = {
+            'Guest Name': formData.fullName,
+            'Booking Date': formatDisplayDate(formData.bookingDate),
+            'Reservation Type': formData.reservationType,
+            'Selected Rooms': selectedRooms.value.map(r => `${r.name} x${r.quantity}`).join(', '),
+            'Total Amount': `₱${formData.total.toLocaleString()}`,
+            'Payment Method': formData.paymentMethod,
+            'Payment Type': formData.paymentType === 'Downpayment' ? 'Downpayment (50%)' : 'Full Payment',
+          }
+
+          if (formData.paymentMethod === 'Gcash') {
+            details['Amount Paid'] = `₱${amountPaid.toLocaleString()}`
+            details['Reference Number'] = formData.rfrncNumber
+            details['Payment Status'] = 'Paid'
+          } else {
+            details['Amount to Collect'] = `₱${amountPaid.toLocaleString()}`
+          }
+          
+          if (formData.paymentType === 'Downpayment') {
+            details['Remaining Balance'] = `₱${formData.remainingBalance.toLocaleString()}`
+          }
+
+          details['Reservation IDs'] = results.map(r => r.reservationId).join(', ')
+
+          const successMessage = formData.paymentMethod === 'Gcash'
+            ? `${results.length} reservation(s) and payment have been successfully recorded.`
+            : `${results.length} reservation(s) created successfully. Payment will be collected at check-in.`
+
+          showSuccessFeedback('Reservations Created!', successMessage, details)
+          await bookingsService.fetchBookings()
+          resetForm()
+        } else {
+          const failed = results.find(r => !r.success)
+          showErrorFeedback('Reservation Failed', failed?.error || 'Failed to create reservations')
+        }
+      } catch (error) {
+        console.error('Error creating reservations:', error)
+        showErrorFeedback('Reservation Failed', error.message || 'Failed to create reservations')
+      } finally {
+        isSubmitting.value = false
+      }
+    }
+
+    function resetForm() {
+      Object.assign(formData, {
+        fullName: '',
+        email: '',
+        phoneNumber: '',
+        guests: 1,
+        reservationType: 'Day Time',
+        status: 'Pending',
+        bookingDate: '',
+        total: 0,
+        paymentType: 'Downpayment',
+        paymentMethod: '',
+        rfrncNumber: '',
+        downpayment: 0,
+        remainingBalance: 0,
+        request: ''
+      })
+      selectedRoomsMap.value.clear()
+      dateError.value = ''
+    }
+
+    function handleOverlayClick() {
+      emit('close')
+    }
+
+    function handleReservationTypeChange() {
+      clearSelectedRooms()
+    }
+
+    // ==========================================
+    // LOAD RESERVATIONS
+    // ==========================================
+    
+    async function loadExistingReservations() {
+      isLoadingReservations.value = true
+      try {
+        await bookingsService.fetchBookings()
+        existingReservations.value = bookingsService.bookings
+      } catch (error) {
+        console.error('Error loading reservations:', error)
+      } finally {
+        isLoadingReservations.value = false
+      }
+    }
+
+    onMounted(() => {
+      loadExistingReservations()
+    })
+
+    watch(() => props.show, (newVal) => {
+      if (newVal) {
+        loadExistingReservations()
+        resetForm()
+      }
+    })
+
+    watch(totalAmount, (newTotal) => {
+      const validTotal = isNaN(newTotal) ? 0 : newTotal
+      formData.total = validTotal
+      updateRemainingBalance()
+    }, { immediate: true })
+
+    watch(() => formData.paymentType, () => {
+      updateRemainingBalance()
+    })
+
+    return {
+      // State
+      formData,
+      isSubmitting,
+      isLoadingReservations,
+      dateError,
+      showFeedback,
+      feedbackType,
+      feedbackTitle,
+      feedbackMessage,
+      feedbackDetails,
+      
+      // Calendar
+      currentMonth,
+      currentYear,
+      currentMonthName,
+      daysInMonth,
+      startDay,
+      weekdays,
+      
+      // Room availability
+      roomsWithAvailability,
+      selectedRooms,
+      selectedRoomIds,
+      hasBlockedRooms,
+      roomsAvailabilityHint,
+      getTotalAvailableForDate,
+      
+      // Validation
+      isFormValid,
+      
+      // Quantity methods
+      getSelectedQuantity,
+      incrementQuantity,
+      decrementQuantity,
+      toggleRoomSelection,
+      
+      // Methods
+      prevMonth,
+      nextMonth,
+      selectDate,
+      clearDate,
+      formatDateString,
+      formatDisplayDate,
+      isPastDate,
+      getDateClasses,
+      getDateAvailabilitySummary,
+      updateRemainingBalance,
+      handleSubmit,
+      handleOverlayClick,
+      handleReservationTypeChange,
+      handleFeedbackClose,
+      handleFeedbackConfirm,
+      
+      // Constants
+      BOOKING_CONFIG,
+      getTotalCapacity
+    }
   }
 }
-
-const resetForm = () => {
-  Object.keys(formData).forEach(key => {
-    if (typeof formData[key] === 'number') {
-      formData[key] = 0
-    } else if (typeof formData[key] === 'string') {
-      formData[key] = ''
-    } else if (formData[key] === null) {
-      formData[key] = null
-    }
-  })
-  formData.guests = 1
-  formData.paymentType = 'Downpayment'
-  formData.paymentMethod = ''
-  formData.status = 'Paid'
-  dateError.value = ''
-  checkInError.value = ''
-  checkOutError.value = ''
-}
-
-// Watch for check-out changes
-watch(() => formData.checkOut, (newValue) => {
-  if (newValue) {
-    calculateNights()
-  } else {
-    formData.totalNights = 0
-  }
-})
-
-// Watch for check-in changes
-watch(() => formData.checkIn, (newValue, oldValue) => {
-  if (newValue !== oldValue && formData.checkOut) {
-    calculateNights()
-  }
-})
-
-// Watch payment method to clear reference number when switching to cash
-watch(() => formData.paymentMethod, (newValue) => {
-  if (newValue !== 'Gcash') {
-    formData.rfrncNumber = ''
-  }
-})
-
 </script>
 
 <style scoped>
-/* ... Same styles as before ... */
-
-/* Add this to your existing styles */
-.full-width {
-  grid-column: span 2; /* Makes the element take full width of the form-row */
-}
-
-/* Availability hint */
-.availability-hint {
-  background: #f0f9ff;
-  border: 1px solid #bae6fd;
-  border-radius: 6px;
-  padding: 8px 12px;
-  margin-bottom: 16px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: #0369a1;
-}
-
-.availability-hint.has-blocked {
-  background: #fff7ed;
-  border-color: #fed7aa;
-  color: #9a3412;
-}
-
-.availability-hint.loading {
-  background: #f3f4f6;
-  border-color: #d1d5db;
-  color: #4b5563;
-}
-
-.hint-icon {
-  font-size: 16px;
-}
-
-.hint-text {
-  flex: 1;
-}
-
-/* Error styling */
-.error-input {
-  border-color: #ef4444 !important;
-}
-
-.error-message {
-  color: #ef4444;
-  font-size: 12px;
-  margin-top: 4px;
-  display: block;
-}
-
-/* Disabled state for date inputs */
-input[type="date"]:disabled {
-  background: #f3f4f6;
-  cursor: not-allowed;
-  opacity: 0.6;
-}
+/* ==========================================
+   MODAL OVERLAY
+   ========================================== */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -945,79 +1013,97 @@ input[type="date"]:disabled {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 9999;
+  z-index: 1000;
   padding: 20px;
-  overflow-y: auto;
 }
 
 .create-reservation-modal {
   background: white;
   border-radius: 12px;
-  width: 100%;
   max-width: 900px;
+  width: 100%;
   max-height: 90vh;
-  overflow-y: auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
 }
 
+/* ==========================================
+   MODAL HEADER
+   ========================================== */
 .modal-header {
+  padding: 20px 24px;
+  border-bottom: 2px solid #e0e0e0;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 24px;
-  border-bottom: 1px solid #e0e0e0;
-  position: sticky;
-  top: 0;
-  background: white;
-  z-index: 10;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
 }
 
 .modal-header h2 {
   margin: 0;
   font-size: 24px;
   font-weight: 600;
-  color: #1f2937;
 }
 
 .close-btn {
-  background: none;
+  background: rgba(255, 255, 255, 0.2);
   border: none;
+  padding: 8px;
+  border-radius: 6px;
   cursor: pointer;
-  padding: 4px;
-  color: #6b7280;
-  transition: color 0.2s;
+  transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .close-btn:hover {
-  color: #1f2937;
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .close-btn svg {
-  stroke: currentColor;
-  fill: none;
+  stroke: white;
   stroke-width: 2;
 }
 
+/* ==========================================
+   MODAL BODY
+   ========================================== */
 .modal-body {
   padding: 24px;
+  overflow-y: auto;
+  flex: 1;
 }
 
 .form-section {
   margin-bottom: 32px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.form-section:last-of-type {
+  border-bottom: none;
 }
 
 .form-section h3 {
-  font-size: 16px;
+  margin: 0 0 20px 0;
+  font-size: 18px;
   font-weight: 600;
   color: #1f2937;
-  margin: 0 0 16px 0;
-  padding-bottom: 8px;
-  border-bottom: 2px solid #e0e0e0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
+/* ==========================================
+   FORM ELEMENTS
+   ========================================== */
 .form-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, 1fr);
   gap: 16px;
   margin-bottom: 16px;
 }
@@ -1028,10 +1114,10 @@ input[type="date"]:disabled {
 }
 
 .form-group label {
-  font-size: 14px;
   font-weight: 500;
-  color: #374151;
   margin-bottom: 6px;
+  color: #374151;
+  font-size: 14px;
 }
 
 .form-group input,
@@ -1077,6 +1163,244 @@ input[type="date"]:disabled {
   font-weight: 500;
 }
 
+.full-width {
+  grid-column: span 2;
+}
+
+/* ==========================================
+   CALENDAR
+   ========================================== */
+.calendar-section {
+  margin-top: 16px;
+}
+
+.calendar-label {
+  font-weight: 600;
+  color: #374151;
+  font-size: 14px;
+}
+
+.error-message {
+  color: #ef4444;
+  font-size: 12px;
+}
+
+.calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 16px 0;
+  padding: 12px;
+  background: #f9fafb;
+  border-radius: 8px;
+}
+
+.calendar-nav {
+  background: white;
+  border: 1px solid #d1d5db;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 18px;
+  transition: all 0.2s;
+}
+
+.calendar-nav:hover {
+  background: #667eea;
+  color: white;
+  border-color: #667eea;
+}
+
+.calendar-month {
+  font-weight: 600;
+  font-size: 16px;
+  color: #1f2937;
+}
+
+.calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.weekday {
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  padding: 8px 0;
+}
+
+.calendar-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.calendar-day {
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 14px;
+  position: relative;
+  background: white;
+}
+
+.calendar-day.empty {
+  border: none;
+  cursor: default;
+}
+
+.calendar-day.past {
+  background: #f3f4f6;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.calendar-day:not(.past):not(.empty):hover {
+  border-color: #667eea;
+  background: #f0f4ff;
+}
+
+.calendar-day.selected {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-color: #667eea;
+  font-weight: 600;
+}
+
+.calendar-day.fully-booked:not(.selected) {
+  background: #fee2e2;
+  border-color: #ef4444;
+}
+
+.calendar-day.partially-available:not(.selected) {
+  background: #fef3c7;
+  border-color: #f59e0b;
+}
+
+.availability-indicator {
+  font-size: 10px;
+  position: absolute;
+  bottom: 2px;
+  right: 4px;
+}
+
+.selected-date-display {
+  margin-top: 12px;
+  padding: 12px;
+  background: #f0f4ff;
+  border: 1px solid #667eea;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.selected-label {
+  font-size: 13px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.selected-value {
+  font-size: 14px;
+  color: #1f2937;
+  font-weight: 600;
+  flex: 1;
+}
+
+.clear-date {
+  background: #ef4444;
+  color: white;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background 0.2s;
+}
+
+.clear-date:hover {
+  background: #dc2626;
+}
+
+/* ==========================================
+   DATE SUMMARY
+   ========================================== */
+.date-summary {
+  margin-top: 16px;
+  padding: 12px;
+  background: #f9fafb;
+  border-radius: 8px;
+}
+
+.summary-stats {
+  display: flex;
+  gap: 24px;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.stat-value {
+  font-size: 18px;
+  font-weight: 600;
+  color: #667eea;
+}
+
+/* ==========================================
+   AVAILABILITY HINT
+   ========================================== */
+.availability-hint {
+  padding: 12px 16px;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.availability-hint.has-blocked {
+  background: #fef3c7;
+  border-color: #fcd34d;
+}
+
+.availability-hint.loading {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+}
+
+.hint-icon {
+  font-size: 20px;
+}
+
+.hint-text {
+  font-size: 13px;
+  color: #374151;
+  font-weight: 500;
+}
+
+/* ==========================================
+   ROOM GRID
+   ========================================== */
 .room-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -1093,6 +1417,7 @@ input[type="date"]:disabled {
   position: relative;
   display: flex;
   gap: 12px;
+  opacity: 1;
 }
 
 .room-card:hover:not(.unavailable) {
@@ -1109,6 +1434,16 @@ input[type="date"]:disabled {
 .room-card.unavailable {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.room-card.unavailable:hover {
+  transform: none;
+  border-color: #e0e0e0;
+  box-shadow: none;
+}
+
+.room-card.partially-available {
+  border-left: 4px solid #f59e0b;
 }
 
 .room-icon {
@@ -1134,21 +1469,103 @@ input[type="date"]:disabled {
 }
 
 .room-info .price {
-  margin: 0;
+  margin: 0 0 8px 0;
   font-size: 14px;
   font-weight: 600;
   color: #10b981;
 }
 
-.unavailable-badge {
+.availability-badge {
   display: inline-block;
-  padding: 2px 8px;
-  background: #fee2e2;
-  color: #991b1b;
+  padding: 4px 8px;
   border-radius: 4px;
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 600;
   margin-top: 4px;
+}
+
+.availability-badge.success {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.availability-badge.warning {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.availability-badge.unavailable {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.quantity-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.quantity-btn {
+  width: 24px;
+  height: 24px;
+  border: 1px solid #d1d5db;
+  background: white;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: bold;
+  transition: all 0.2s;
+}
+
+.quantity-btn:hover:not(:disabled) {
+  background: #667eea;
+  color: white;
+  border-color: #667eea;
+}
+
+.quantity-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.quantity-value {
+  font-weight: 600;
+  min-width: 20px;
+  text-align: center;
+}
+
+.selected-rooms-summary {
+  margin: 16px 0;
+  padding: 16px;
+  background: #f0f4ff;
+  border: 1px solid #667eea;
+  border-radius: 8px;
+}
+
+.selected-rooms-summary h4 {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  color: #374151;
+}
+
+.selected-room-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  font-size: 13px;
+}
+
+.selected-room-item span:first-child {
+  color: #1f2937;
+}
+
+.selected-room-item span:last-child {
+  font-weight: 600;
+  color: #10b981;
 }
 
 .check-icon {
@@ -1167,11 +1584,25 @@ input[type="date"]:disabled {
   font-weight: bold;
 }
 
+.no-rooms-message {
+  text-align: center;
+  padding: 24px;
+  color: #6b7280;
+  background: #f9fafb;
+  border-radius: 8px;
+  margin: 16px 0;
+}
+
+.no-rooms-message strong {
+  color: #1f2937;
+}
+
 .pricing-summary {
   background: #f9fafb;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   padding: 16px;
+  margin-top: 16px;
 }
 
 .summary-row {
@@ -1198,9 +1629,9 @@ input[type="date"]:disabled {
 .summary-row.total {
   background: #667eea;
   color: white;
-  margin: 8px -16px;
+  margin: 8px -16px -16px;
   padding: 12px 16px;
-  border-radius: 6px;
+  border-radius: 0 0 6px 6px;
 }
 
 .summary-row.total span,
@@ -1269,6 +1700,10 @@ input[type="date"]:disabled {
   .form-row,
   .room-grid {
     grid-template-columns: 1fr;
+  }
+  
+  .full-width {
+    grid-column: span 1;
   }
 }
 </style>

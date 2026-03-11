@@ -28,23 +28,28 @@
           </div>
           <div class="info-item">
             <span class="info-label">Room</span>
-            <span class="info-value">{{ booking.room }}</span>
+            <span class="info-value">{{ booking.roomName }}</span>
           </div>
           <div class="info-item">
             <span class="info-label">Number of Guests</span>
-            <span class="info-value">{{ booking.guests }}</span>
+            <span class="info-value">{{ booking.guestQuantity }}</span>
           </div>
           <div class="info-item">
-            <span class="info-label">Check-in Date</span>
-            <span class="info-value">{{ formatDate(booking.checkIn) }}</span>
+            <span class="info-label">Number of Rooms/Cottages</span>
+            <span class="info-value">{{ formatDate(booking.roomQuantity) }}</span>
+          </div>
+          
+          <div class="info-item">
+            <span class="info-label">Reservation Type</span>
+            <span class="info-value">
+              <span class="reservation-badge" :class="getReservationTypeClass(booking.reservationType)">
+                {{ booking.reservationType || 'Day Time' }}
+              </span>
+            </span>
           </div>
           <div class="info-item">
-            <span class="info-label">Check-out Date</span>
-            <span class="info-value">{{ formatDate(booking.checkOut) }}</span>
-          </div>
-          <div class="info-item">
-            <span class="info-label">Total Nights</span>
-            <span class="info-value">{{ calculateNights(booking.checkIn, booking.checkOut) }}</span>
+            <span class="info-label">Booking Date</span>
+            <span class="info-value">{{ formatDate(booking.bookingDate) }}</span>
           </div>
           <div class="info-item">
             <span class="info-label">Total Amount</span>
@@ -81,11 +86,11 @@
             </div>
             <div class="info-item" v-if="booking.downpayment">
               <span class="info-label">Downpayment</span>
-              <span class="info-value">₱{{ booking.downpayment.toLocaleString() }}</span>
+              <span class="info-value">₱{{ Number(booking.downpayment).toLocaleString() }}</span>
             </div>
             <div class="info-item highlight-balance">
               <span class="info-label">Remaining Balance</span>
-              <span class="info-value balance-amount">₱{{ booking.remainingBalance?.toLocaleString()}}</span>
+              <span class="info-value balance-amount">₱{{ Number(booking.remainingBalance || 0).toLocaleString() }}</span>
             </div>
           </div>
         </div>
@@ -205,11 +210,11 @@
               class="status-select"
               :class="getStatusClass(selectedStatus)"
             >
-              <option value="Pending">Pending</option>
+              <!-- <option value="Pending">Pending</option> -->
               <option value="Confirmed">Confirmed</option>
               <option value="Checked-in">Checked-in</option>
-              <option value="Checked-out">Checked-out</option>
-              <option value="Cancelled">Cancelled</option>
+              <option value="Success">Checked-out</option>
+              <option value="Re-schedule">Re-schedule</option>
             </select>
             
             <button 
@@ -254,7 +259,7 @@
     </div>
   </div>
 
-  <!-- ✅ FIXED: Proper FeedbackModal Usage -->
+  <!-- Feedback Modal -->
   <FeedbackModal
     :show="isPaid"
     type="success"
@@ -303,21 +308,22 @@ const isPaid = ref(false)
 // Calculate new balance after payment
 const calculateNewBalance = computed(() => {
   if (!props.booking) return 0
-  const currentBalance = props.booking.remainingBalance || 0
-  return Math.max(0, currentBalance - (paymentForm.amount || 0))
+  const currentBalance = Number(props.booking.remainingBalance || 0)
+  const paymentAmount = Number(paymentForm.amount || 0)
+  return Math.max(0, currentBalance - paymentAmount)
 })
 
-// ✅ NEW: Computed property for payment success details
+// Payment success details
 const paymentSuccessDetails = computed(() => {
   if (!isPaid.value || !props.booking) return null
   
   return {
-    'Payment ID': isPaid.value?.paymentId || 'N/A', // If you have payment ID
     'Reservation ID': `#${props.booking.id}`,
     'Guest Name': props.booking.guest,
-    'Amount': paymentForm.amount, // This will be picked up by 'Amount' check
+    'Amount Paid': `₱${formatNumber(paymentForm.amount)}`,
     'Payment Method': paymentForm.method,
-    'Payment Type': 'Balance Payment', // This will be picked up by 'Payment Type' check
+    'Payment Type': 'Balance Payment',
+    'New Balance': `₱${formatNumber(calculateNewBalance.value)}`
   }
 })
 
@@ -326,7 +332,7 @@ const isPaymentValid = computed(() => {
   if (!props.booking) return false
   
   const isValidAmount = paymentForm.amount > 0 && 
-                       paymentForm.amount <= props.booking.remainingBalance
+                       paymentForm.amount <= Number(props.booking.remainingBalance || 0)
   
   if (!isValidAmount) return false
   
@@ -344,7 +350,7 @@ watch(() => props.booking, (newBooking) => {
     adminNotes.value = newBooking.notes || ''
     
     // Reset payment form
-    paymentForm.amount = newBooking.remainingBalance || 0
+    paymentForm.amount = Number(newBooking.remainingBalance || 0)
     paymentForm.method = 'GCash'
     paymentForm.referenceNumber = ''
     paymentErrors.amount = ''
@@ -353,6 +359,7 @@ watch(() => props.booking, (newBooking) => {
     console.log('Loading booking:', {
       id: newBooking.id,
       guest: newBooking.guest,
+      bookingDate: newBooking.bookingDate,
       remainingBalance: newBooking.remainingBalance
     })
   }
@@ -362,35 +369,25 @@ watch(() => props.booking, (newBooking) => {
 const formatDate = (dateString) => {
   if (!dateString) return 'N/A'
   try {
-    const date = new Date(dateString)
-    if (isNaN(date.getTime())) return dateString
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    })
+    // Handle YYYY-MM-DD format
+    if (typeof dateString === 'string' && dateString.includes('-')) {
+      const [year, month, day] = dateString.split('-')
+      const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      })
+    }
+    return dateString
   } catch (e) {
     return dateString
   }
 }
 
-// Calculate nights between dates
-const calculateNights = (checkIn, checkOut) => {
-  if (!checkIn || !checkOut) return 'N/A'
-  try {
-    const start = new Date(checkIn)
-    const end = new Date(checkOut)
-    const diffTime = Math.abs(end - start)
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-    return diffDays
-  } catch (e) {
-    return 'N/A'
-  }
-}
-
 // Format number
 const formatNumber = (num) => {
-  if (!num && num !== 0) return '0'
+  if (num === undefined || num === null) return '0.00'
   return Number(num).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
@@ -401,9 +398,20 @@ const getStatusClass = (status) => {
     'Confirmed': 'status-confirmed',
     'Checked-in': 'status-checkedin',
     'Checked-out': 'status-checkedout',
+    'Re-schedule': 'status-reschedule',
     'Cancelled': 'status-cancelled'
   }
   return classes[status] || 'status-pending'
+}
+
+// Get reservation type class for styling
+const getReservationTypeClass = (type) => {
+  const classes = {
+    'Day Time': 'type-day',
+    'Night Time': 'type-night',
+    'Full Day': 'type-full'
+  }
+  return classes[type] || 'type-day'
 }
 
 // Close modal
@@ -411,11 +419,11 @@ const closeModal = () => {
   emit('close')
 }
 
-// ✅ NEW: Handle payment modal close
+// Handle payment modal close
 const handlePaymentModalClose = () => {
   isPaid.value = false
   
-  // Optionally refresh the booking data
+  // Refresh booking data
   emit('payment-success', {
     bookingId: props.booking?.id,
     amount: paymentForm.amount,
@@ -430,13 +438,16 @@ const validatePaymentAmount = () => {
     return false
   }
   
-  if (paymentForm.amount <= 0) {
+  const remainingBalance = Number(props.booking.remainingBalance || 0)
+  const amount = Number(paymentForm.amount || 0)
+  
+  if (amount <= 0) {
     paymentErrors.amount = 'Amount must be greater than 0'
     return false
   }
   
-  if (paymentForm.amount > props.booking.remainingBalance) {
-    paymentErrors.amount = `Amount cannot exceed remaining balance of ₱${formatNumber(props.booking.remainingBalance)}`
+  if (amount > remainingBalance) {
+    paymentErrors.amount = `Amount cannot exceed remaining balance of ₱${formatNumber(remainingBalance)}`
     return false
   }
   
@@ -470,7 +481,6 @@ const processPayment = async () => {
   isProcessingPayment.value = true
 
   try {
-    // ✅ FIXED: Calculate balance correctly
     const newBalance = calculateNewBalance.value
     
     const paymentData = {
@@ -478,9 +488,9 @@ const processPayment = async () => {
       email: props.booking.email,
       phoneNumber: props.booking.phoneNumber,
       roomName: props.booking.room,
-      amount: paymentForm.amount,
-      balance: newBalance,  // ✅ ADD: Send the new balance
-      paymentMethod: paymentForm.method,
+      amount: Number(paymentForm.amount),
+      balance: newBalance,
+      paymentMethod: paymentForm.method === 'GCash' ? 'GCash' : 'Cash',
       referenceNumber: paymentForm.method === 'GCash' ? paymentForm.referenceNumber : '',
       paymentType: 'Balance Payment',
       notes: `Balance payment for booking #${props.booking.id}`
@@ -498,7 +508,6 @@ const processPayment = async () => {
         props.booking.remainingBalance = newBalance
       }
       
-      // ✅ FIXED: Proper assignment operator
       isPaid.value = true
       
       // Reset payment form
@@ -578,6 +587,31 @@ const saveNotes = async () => {
 </script>
 
 <style scoped>
+/* Add reservation type badge styles */
+.reservation-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  text-align: center;
+}
+
+.type-day {
+  background-color: #e3f2fd;
+  color: #1976d2;
+}
+
+.type-night {
+  background-color: #e8eaf6;
+  color: #3f51b5;
+}
+
+.type-full {
+  background-color: #f3e5f5;
+  color: #7b1fa2;
+}
+
 /* Add payment section styles */
 .pay-balance-section {
   margin-bottom: 24px;
@@ -886,6 +920,12 @@ const saveNotes = async () => {
   background-color: #e2e3e5;
   color: #383d41;
   border: 1px solid #d6d8db;
+}
+
+.status-reschedule {
+  background-color: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeeba;
 }
 
 .status-cancelled {

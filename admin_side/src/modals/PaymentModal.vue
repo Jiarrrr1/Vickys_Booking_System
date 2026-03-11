@@ -88,7 +88,7 @@
             </div>
             <div class="detail-row">
               <span class="detail-label">Payment Channel:</span>
-              <span class="detail-value">{{ payment.method }} - Online</span>
+              <span class="detail-value">{{ payment.method }}</span>
             </div>
           </div>
         </div>

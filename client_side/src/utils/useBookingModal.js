@@ -1,33 +1,24 @@
 // src/utils/useBookingModal.js
-import { ref, reactive, computed, watch } from 'vue'
-import { api } from '../services/api'  // Import the api from your file
+import { ref, reactive, computed } from 'vue'
+import { api } from '../services/api'
 
-export function useBookingModal(bookingRoom, isOpen, closeBooking) {
-  const stepLabels = ['Guest Info', 'Booking Date', 'Review', 'Payment'] 
+export function useBookingModal(bookingRoom, bookingDate, reservationType, isOpen, closeBooking) {
+  // ✅ UPDATED: 3 steps instead of 4
+  const stepLabels = ['Guest Info', 'Review', 'Payment'] 
   const currentStep = ref(1)
   const submitted = ref(false)
   const refNumber = ref('')
-  const checkInInput = ref(null)
-  const checkOutInput = ref(null)
-  const checkInError = ref('')
-  const checkOutError = ref('')
   const isSubmitting = ref(false)
   const paymentLocked = ref(false)
   const paymentCompleted = ref(false)
-  const isLoadingReservations = ref(false)
   
   // Field validation errors
   const fieldErrors = reactive({
     name: '',
     email: '',
     phone: '',
-    checkIn: '',
-    checkOut: '',
     rfrncNumber: ''
   })
-
-  // Existing reservations from backend
-  const existingReservations = ref([])
 
   // Form data
   const form = reactive({
@@ -36,73 +27,17 @@ export function useBookingModal(bookingRoom, isOpen, closeBooking) {
     phone: '',
     guestCount: 2,
     specialReq: '',
-    checkIn: '',
-    checkOut: '',
-    notes: '',
     payType: 'down',
-    rfrncNumber: '',
-    totalNights: 0
+    rfrncNumber: ''
   })
 
   // ========================================
   // COMPUTED PROPERTIES
   // ========================================
 
-  const minDate = computed(() => {
-    const today = new Date()
-    return today.toISOString().split('T')[0]
-  })
-
-  const maxCheckInDate = computed(() => {
-    const oneYearFromNow = new Date()
-    oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1)
-    return oneYearFromNow.toISOString().split('T')[0]
-  })
-
-  const maxCheckOutDate = computed(() => {
-    const oneYearFromNow = new Date()
-    oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1)
-    return oneYearFromNow.toISOString().split('T')[0]
-  })
-
-  const minCheckOutDate = computed(() => {
-    if (!form.checkIn) return ''
-    const checkIn = new Date(form.checkIn)
-    const nextDay = new Date(checkIn)
-    nextDay.setDate(nextDay.getDate() + 1)
-    return nextDay.toISOString().split('T')[0]
-  })
-
-  const blockedDateRanges = computed(() => {
-    if (!bookingRoom.name || !existingReservations.value.length) return []
-    return existingReservations.value.filter(
-      res => res.roomName === bookingRoom.name
-    )
-  })
-
-  // Calculate total nights between check-in and check-out
-  const totalNights = computed(() => {
-    if (!form.checkIn || !form.checkOut) {
-      form.totalNights = 0
-      return 0
-    }
-    
-    const checkIn = new Date(form.checkIn)
-    const checkOut = new Date(form.checkOut)
-    
-    const timeDiff = checkOut.getTime() - checkIn.getTime()
-    const nights = Math.ceil(timeDiff / (1000 * 3600 * 24))
-    
-    const totalNightsValue = nights > 0 ? nights : 0
-    form.totalNights = totalNightsValue
-    return totalNightsValue
-  })
-
-  // Calculate total price based on room rate and number of nights
+  // ✅ UPDATED: Total price is just the room price (no nights)
   const totalPrice = computed(() => {
-    const roomPrice = bookingRoom.price || 0
-    const nights = totalNights.value || 0
-    return roomPrice * nights
+    return bookingRoom.price || 0
   })
 
   // Calculate downpayment (50% of total price)
@@ -122,113 +57,19 @@ export function useBookingModal(bookingRoom, isOpen, closeBooking) {
     }
   })
 
-  // ========================================
-  // DATE BLOCKING FUNCTIONS
-  // ========================================
-
-  function getBlockedDatesSet() {
-    const blockedDates = new Set()
-    
-    const roomReservations = existingReservations.value.filter(
-      res => res.roomName === bookingRoom.name
-    )
-    
-    roomReservations.forEach(reservation => {
-      const start = new Date(reservation.checkIn)
-      const end = new Date(reservation.checkOut)
-      
-      const current = new Date(start)
-      while (current < end) {
-        blockedDates.add(current.toISOString().split('T')[0])
-        current.setDate(current.getDate() + 1)
-      }
-    })
-    
-    return blockedDates
-  }
-
-  function isDateBlocked(date) {
-    if (!bookingRoom.name) return false
-    const blockedDates = getBlockedDatesSet()
-    return blockedDates.has(date)
-  }
-
-  function hasBlockedDatesInRange(startDate, endDate) {
-    if (!bookingRoom.name) return false
-    const blockedDates = getBlockedDatesSet()
-    const start = new Date(startDate)
-    const end = new Date(endDate)
-    
-    const current = new Date(start)
-    while (current < end) {
-      if (blockedDates.has(current.toISOString().split('T')[0])) {
-        return true
-      }
-      current.setDate(current.getDate() + 1)
+  // ✅ NEW: Get reservation type time display
+  const reservationTypeTime = computed(() => {
+    const times = {
+      'Day Time': '6:00 AM - 6:00 PM',
+      'Night Time': '6:00 PM - 6:00 AM (next day)',
+      'Full Day': '6:00 AM - 6:00 AM (24 hours)'
     }
-    
-    return false
-  }
+    return times[reservationType.value] || ''
+  })
 
   // ========================================
   // VALIDATION FUNCTIONS
   // ========================================
-
-  function validateCheckIn() {
-    checkInError.value = ''
-    fieldErrors.checkIn = ''
-    
-    if (!form.checkIn || !bookingRoom.name) return
-    
-    const selectedDate = new Date(form.checkIn)
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    
-    if (selectedDate < today) {
-      checkInError.value = 'Cannot select a past date'
-      fieldErrors.checkIn = 'Cannot select a past date'
-      form.checkIn = ''
-      return
-    }
-    
-    if (isDateBlocked(form.checkIn)) {
-      checkInError.value = 'This date is not available. Please select another date.'
-      fieldErrors.checkIn = 'This date is not available. Please select another date.'
-      form.checkIn = ''
-      return
-    }
-    
-    if (form.checkOut) {
-      if (form.checkOut <= form.checkIn) {
-        form.checkOut = ''
-        checkOutError.value = ''
-        fieldErrors.checkOut = ''
-      } else {
-        validateCheckOut()
-      }
-    }
-  }
-
-  function validateCheckOut() {
-    checkOutError.value = ''
-    fieldErrors.checkOut = ''
-    
-    if (!form.checkIn || !form.checkOut || !bookingRoom.name) return
-    
-    if (form.checkOut <= form.checkIn) {
-      checkOutError.value = 'Check-out must be after check-in date'
-      fieldErrors.checkOut = 'Check-out must be after check-in date'
-      form.checkOut = ''
-      return
-    }
-    
-    if (hasBlockedDatesInRange(form.checkIn, form.checkOut)) {
-      checkOutError.value = 'Your selected dates overlap with an existing reservation'
-      fieldErrors.checkOut = 'Your selected dates overlap with an existing reservation'
-      form.checkOut = ''
-      return
-    }
-  }
 
   function validateStep1() {
     let isValid = true
@@ -250,11 +91,13 @@ export function useBookingModal(bookingRoom, isOpen, closeBooking) {
       fieldErrors.email = ''
     }
     
-    if (!form.phone || !String(form.phone).trim()) {
+    // Convert phone to string if it's a number
+    const phoneStr = String(form.phone).trim()
+    if (!phoneStr) {
       fieldErrors.phone = 'This field is required'
       isValid = false
-    } else if (String(form.phone).trim().length !== 10) {
-      fieldErrors.phone = 'Phone number must be 10 digits'
+    } else if (phoneStr.length < 10) {
+      fieldErrors.phone = 'Phone number must be at least 10 digits'
       isValid = false
     } else {
       fieldErrors.phone = ''
@@ -264,38 +107,17 @@ export function useBookingModal(bookingRoom, isOpen, closeBooking) {
   }
 
   function validateStep2() {
-    let isValid = true
-    
-    if (!form.checkIn) {
-      fieldErrors.checkIn = 'Check-in date is required'
-      checkInError.value = 'Check-in date is required'
-      isValid = false
-    } else if (checkInError.value) {
-      isValid = false
-    } else {
-      fieldErrors.checkIn = ''
-    }
-    
-    if (!form.checkOut) {
-      fieldErrors.checkOut = 'Check-out date is required'
-      checkOutError.value = 'Check-out date is required'
-      isValid = false
-    } else if (checkOutError.value) {
-      isValid = false
-    } else {
-      fieldErrors.checkOut = ''
-    }
-    
-    return isValid
+    // Step 2 is now Review, no validation needed
+    return true
   }
 
   function validateStep3() {
     let isValid = true
     
-    if (!form.rfrncNumber) {
+    if (!form.rfrncNumber.trim()) {
       fieldErrors.rfrncNumber = 'Reference number is required'
       isValid = false
-    } else if (form.rfrncNumber.toString().length !== 13) {
+    } else if (form.rfrncNumber.length < 13) {
       fieldErrors.rfrncNumber = 'Reference number must be 13 digits'
       isValid = false
     } else {
@@ -306,156 +128,33 @@ export function useBookingModal(bookingRoom, isOpen, closeBooking) {
   }
 
   // ========================================
-  // UTILITY FUNCTIONS
+  // NAVIGATION
   // ========================================
 
-  function preventTyping(event) {
-    if ([46, 8, 9, 27, 13].indexOf(event.keyCode) !== -1 ||
-        (event.keyCode === 65 && event.ctrlKey === true) ||
-        (event.keyCode === 67 && event.ctrlKey === true) ||
-        (event.keyCode === 86 && event.ctrlKey === true) ||
-        (event.keyCode === 88 && event.ctrlKey === true)) {
-      return
-    }
-    event.preventDefault()
-  }
-
-  function formatDate(dateString) {
-    if (!dateString) return ''
-    const date = new Date(dateString)
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric', 
-      year: 'numeric' 
-    })
-  }
-
-  // ========================================
-  // API FUNCTIONS
-  // ========================================
-
-  async function fetchReservations() {
-    console.log('📋 Fetching all reservations')
-    isLoadingReservations.value = true
-    
-    try {
-      const response = await api.getAllReservations()
-      console.log('📥 Reservations response:', response)
-      
-      if (Array.isArray(response)) {
-        existingReservations.value = response
-        console.log(`✅ Found ${existingReservations.value.length} total reservations`)
-      } else {
-        existingReservations.value = []
-        console.warn('⚠️ Unexpected response format:', response)
-      }
-    } catch (error) {
-      console.error('❌ Error fetching reservations:', error)
-      existingReservations.value = []
-    } finally {
-      isLoadingReservations.value = false
-    }
-  }
-
-  async function getReservation(id) {
-    isLoadingReservations.value = true
-    
-    try {
-      const response = await api.getReservation(id)
-      return response.reservationId
-    } catch (error) {
-      console.error('❌ Error fetching reservations:', error)
-    } finally {
-      isLoadingReservations.value = false
-    }
-  }
-
-  async function submitReservation() {
-    try {
-      isSubmitting.value = true
-      
-      const reservationData = {
-        fullName: form.name,
-        email: form.email,
-        phoneNumber: form.phone,
-        guests: form.guestCount,
-        request: form.specialReq || "",
-        checkIn: form.checkIn,
-        checkOut: form.checkOut,
-        rfrncNumber: form.rfrncNumber,
-        roomId: bookingRoom.id,
-        roomName: bookingRoom.name,
-        totalNights: totalNights.value,
-        total: totalPrice.value,
-        downpayment: computeDownpayment.value,
-        remainingBalance: computeRemainingBalance.value,
-        paymentType: form.payType === 'down' ? 'Downpayment' : 'Full Payment',
-        paymentMethod: 'GCash', // Client only uses GCash
-        status: 'Pending'
-      }
-      
-      console.log('📦 Submitting reservation:', reservationData)
-      
-      const response = await api.createReservation(reservationData)
-      console.log('✅ Reservation response:', response)
-      
-      let reservationId = null
-      
-      if (response.reservationId) {
-        reservationId = response.reservationId
-      } else if (response.data?.reservationId) {
-        reservationId = response.data.reservationId
-      }
-      
-      console.log('✅ Extracted reservation ID:', reservationId)
-      
-      if (!reservationId) {
-        console.error('❌ Could not extract reservation ID from response:', response)
-        throw new Error('Reservation created but no ID returned')
-      }
-      
-      refNumber.value = reservationId
-      submitted.value = true
-      paymentCompleted.value = true
-      
-      await fetchReservations()
-      
-    } catch (error) {
-      console.error('❌ Error submitting reservation:', error)
-      alert('Failed to create reservation: ' + error.message)
-    } finally {
-      isSubmitting.value = false
-    }
-  }
-
-  // ========================================
-  // NAVIGATION FUNCTIONS
-  // ========================================
-
-  async function nextStep() {
+  function nextStep() {
+    // Validate current step
     if (currentStep.value === 1 && !validateStep1()) {
+      console.log('❌ Step 1 validation failed')
       return
     }
     
     if (currentStep.value === 2 && !validateStep2()) {
+      console.log('❌ Step 2 validation failed')
       return
     }
     
+    // If on payment step, submit the booking
     if (currentStep.value === 3) {
-      currentStep.value++
-      return
-    }
-    
-    if (currentStep.value === 4) {
       if (!validateStep3()) {
+        console.log('❌ Step 3 validation failed')
         return
       }
-      await submitReservation()
+      submitBooking()
+      return
     }
     
-    if (currentStep.value < 3) {
-      currentStep.value++
-    }
+    // Move to next step
+    currentStep.value++
   }
 
   function prevStep() {
@@ -464,114 +163,141 @@ export function useBookingModal(bookingRoom, isOpen, closeBooking) {
     }
   }
 
-  function resetForm() {
-    submitted.value = false
-    currentStep.value = 1
-    checkInError.value = ''
-    checkOutError.value = ''
-    refNumber.value = ''
+  // ========================================
+  // FORM SUBMISSION
+  // ========================================
+
+// In useBookingModal.js - submitBooking function
+async function submitBooking() {
+  isSubmitting.value = true
+  
+  try {
+    console.log('📤 Submitting booking...')
+    
+    // Format the date as YYYY-MM-DD using local date components
+    const date = bookingDate.value
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    const formattedDate = `${year}-${month}-${day}`
+    
+    console.log('📅 Booking date (local):', formattedDate)
+    
+    const reservationData = {
+      fullName: form.name,
+      email: form.email,
+      phoneNumber: `+63${form.phone}`,
+      guestQuantity: form.guestCount,
+      specialRequests: form.specialReq || '',
+      
+      // ✅ Use the manually formatted date string
+      bookingDate: formattedDate,
+      
+      // Room details
+      roomId: bookingRoom.roomId,
+      roomName: bookingRoom.name,
+      
+      // Reservation type
+      reservationType: reservationType.value,
+      
+      // Pricing
+      totalAmount: totalPrice.value,
+      downpayment: form.payType === 'down' ? computeDownpayment.value : totalPrice.value,
+      remainingBalance: computeRemainingBalance.value,
+      
+      // Payment
+      paymentType: form.payType === 'down' ? 'Downpayment' : 'Full Payment',
+      paymentMethod: 'GCash',
+      referenceNumber: form.rfrncNumber,
+      
+      // Status
+      status: 'Pending'
+    }
+    
+    console.log('📦 Reservation Data:', reservationData)
+    
+    const response = await api.createReservation(reservationData)
+    
+    console.log('✅ Booking submitted successfully:', response)
+    
+    refNumber.value = response.data?.referenceNumber || response.referenceNumber || `REF${Date.now()}`
+    submitted.value = true
+    
+  } catch (error) {
+    console.error('❌ Booking submission failed:', error)
+    alert('Failed to submit booking. Please try again.')
+  } finally {
     isSubmitting.value = false
-    isLoadingReservations.value = false
-    paymentLocked.value = false
-    paymentCompleted.value = false
+  }
+}
+
+  // ========================================
+  // UTILITY FUNCTIONS
+  // ========================================
+
+  function preventTyping(event) {
+    event.preventDefault()
+  }
+
+  function formatDate(dateString) {
+    if (!dateString) return ''
     
-    Object.assign(fieldErrors, {
-      name: '',
-      email: '',
-      phone: '',
-      checkIn: '',
-      checkOut: '',
-      rfrncNumber: ''
-    })
+    const date = typeof dateString === 'string' ? new Date(dateString) : dateString
     
-    Object.assign(form, {
-      name: '', 
-      email: '', 
-      phone: '', 
-      guestCount: 2,
-      specialReq: '', 
-      checkIn: '', 
-      checkOut: '', 
-      notes: '', 
-      payType: 'down', 
-      rfrncNumber: '',
-      totalNights: 0
+    return date.toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric'
     })
   }
 
-  // ========================================
-  // WATCHERS
-  // ========================================
+  function resetForm() {
+    form.name = ''
+    form.email = ''
+    form.phone = ''
+    form.guestCount = 2
+    form.specialReq = ''
+    form.payType = 'Downpayment'
+    form.rfrncNumber = ''
+    
+    currentStep.value = 1
+    submitted.value = false
+    refNumber.value = ''
+    
+    // Clear errors
+    Object.keys(fieldErrors).forEach(key => {
+      fieldErrors[key] = ''
+    })
+  }
 
-  watch(() => bookingRoom.id, (newRoomId) => {
-    if (newRoomId) {
-      console.log('🔄 Room changed, fetching reservations...')
-      fetchReservations()
-      form.checkIn = ''
-      form.checkOut = ''
-      checkInError.value = ''
-      checkOutError.value = ''
-      fieldErrors.checkIn = ''
-      fieldErrors.checkOut = ''
-    }
-  })
-
-  watch(isOpen, (newVal) => {
-    if (newVal && bookingRoom.id) {
-      console.log('🔄 Modal opened, fetching reservations...')
-      fetchReservations()
-      resetForm()
-    }
-  })
-
-  watch(() => form.rfrncNumber, (newVal) => {
-    if (newVal && newVal.toString().length === 13) {
-      console.log('✅ Valid reference number entered')
-    }
-  })
+  function bookAnother() {
+    resetForm()
+    closeBooking()
+  }
 
   // ========================================
-  // RETURN PUBLIC API
+  // RETURN
   // ========================================
 
   return {
-    // State
     stepLabels,
     currentStep,
     submitted,
     refNumber,
-    checkInInput,
-    checkOutInput,
-    checkInError,
-    checkOutError,
     fieldErrors,
-    existingReservations,
     form,
-    isSubmitting,
-    isLoadingReservations,
-    paymentLocked,
-    paymentCompleted,
-
-    // Computed
-    minDate,
-    maxCheckInDate,
-    maxCheckOutDate,
-    minCheckOutDate,
-    totalNights,
     totalPrice,
     computeDownpayment,
     computeRemainingBalance,
-    blockedDateRanges,
-    
-    // Methods
-    validateCheckIn,
-    validateCheckOut,
-    preventTyping,
-    formatDate,
+    reservationTypeTime, // ✅ NEW
     nextStep,
     prevStep,
     resetForm,
-    fetchReservations,
-    getReservation,
+    bookAnother,
+    formatDate,
+    preventTyping,
+    isSubmitting,
+    paymentCompleted,
+    paymentLocked
   }
 }

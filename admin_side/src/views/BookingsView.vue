@@ -18,7 +18,7 @@
           </template>
         </StatCard>
 
-        <!-- Upcoming Check-ins -->
+        <!-- Upcoming Bookings -->
         <StatCard
           :value="bookingsStore.upcomingBookings.length"
           label="Upcoming (next 7 days)"
@@ -76,25 +76,23 @@
             <!-- Room Filter -->
             <select class="fsel" v-model="roomFilter" @change="handleSearch">
               <option value="">All Rooms</option>
-              <option value="Deluxe Suite">Deluxe Suite</option>
-              <option value="Garden View">Garden View</option>
-              <option value="Standard Room">Standard Room</option>
-              <option value="Family Suite">Family Suite</option>
-              <option value="Poolside Cabin">Poolside Cabin</option>
-              <option value="Mountain View">Mountain View</option>
+              <option value="Rose Room">Rose Room</option>
+              <option value="Tulip Room">Tulip Room</option>
+              <option value="Callalily Room">Callalily Room</option>
+              <option value="Stargazer Room">Family Suite</option>
+              <!-- <option value="Bamboo Room">Bamboo Room</option> -->
+              <option value="Garden Cottage">Garden Cottage</option>
             </select>
 
-<button class="create-btn" @click="openCreateModal">
-  <svg viewBox="0 0 24 24" width="18" height="18">
-    <line x1="12" y1="5" x2="12" y2="19"/>
-    <line x1="5" y1="12" x2="19" y2="12"/>
-  </svg>
-  Create Reservation
-</button>
+            <button class="create-btn" @click="openCreateModal">
+              <svg viewBox="0 0 24 24" width="18" height="18">
+                <line x1="12" y1="5" x2="12" y2="19"/>
+                <line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+              Create Reservation
+            </button>
           </div>
         </div>
-
-        
 
         <!-- Table -->
         <div class="twrap">
@@ -105,8 +103,8 @@
                 <th>Guest Name</th>
                 <th>Room</th>
                 <th style="text-align:center;">Guests</th>
-                <th>Check-In</th>
-                <th>Check-Out</th>
+                <th>Booking Date</th>
+                <th>Reservation Type</th>
                 <th style="text-align: center;">Status</th>
                 <th style="text-align: center;">View</th>
                 <th style="text-align: center;">Delete</th>
@@ -121,10 +119,14 @@
               >
                 <td class="tdm">#{{ String(booking.id).padStart(4, '0') }}</td>
                 <td class="tdn">{{ booking.guest }}</td>
-                <td>{{ booking.room }}</td>
-                <td style="text-align:center;">{{ booking.guests }}</td>
-                <td><strong>{{ formatDate(booking.checkIn) }}</strong></td>
-                <td>{{ formatDate(booking.checkOut) }}</td>
+                <td>{{ booking.roomName }}</td>
+                <td style="text-align:center;">{{ booking.guestQuantity }}</td>
+                <td><strong>{{ formatDate(booking.bookingDate) }}</strong></td>
+                <td>
+                  <span class="reservation-type-badge" :class="getReservationTypeClass(booking.reservationType)">
+                    {{ booking.reservationType || 'Day Time' }}
+                  </span>
+                </td>
 
                 <td style="text-align: center;" @click.stop>
                   <select 
@@ -224,10 +226,10 @@
     </div>
 
     <CreateReservationModal
-  :show="showCreateModal"
-  @close="closeCreateModal"
-  @success="handleNewReservation"
-/>
+      :show="showCreateModal"
+      @close="closeCreateModal"
+      @success="handleNewReservation"
+    />
   </div>
 </template>
 
@@ -251,50 +253,56 @@ const showFeedbackModal = ref(false)
 const feedbackType = ref('success')
 const feedbackTitle = ref('')
 const feedbackMessage = ref('')
-
-
-// 2️⃣ ADD THIS STATE VARIABLE (with your other ref variables)
 const showCreateModal = ref(false)
 
-// 3️⃣ ADD THESE THREE FUNCTIONS (anywhere in your script setup)
-
-/**
- * Open the create reservation modal
- */
-const openCreateModal = () => {
-  showCreateModal.value = true
-}
-
-/**
- * Close the create reservation modal
- */
-const closeCreateModal = () => {
-  showCreateModal.value = false
-}
-
-/**
- * Handle successful reservation creation
- * @param {Object} newReservation - The newly created reservation data
- */
-const handleNewReservation = async (newReservation) => {
-  console.log('✅ New reservation created:', newReservation)
+// Format date helper with null/undefined check
+const formatDate = (dateString) => {
+  if (!dateString) return '—' // Return em dash if no date
   
-  // Option 1: Show success alert
-  alert(`Reservation #${newReservation.reservationId} created successfully for ${newReservation.fullName}!`)
-  
-  // Option 2: Or show a success toast/notification if you have one
-  // showSuccessToast(`Reservation created for ${newReservation.fullName}`)
-  
-  // Refresh the bookings list to show the new reservation
   try {
-    await bookingsService.fetchBookings()
-    console.log('📋 Bookings list refreshed')
+    // Handle if it's already a formatted date string (YYYY-MM-DD)
+    if (typeof dateString === 'string' && dateString.includes('-')) {
+      const [year, month, day] = dateString.split('-')
+      if (!year || !month || !day) return 'Invalid date'
+      
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+      const monthIndex = parseInt(month) - 1
+      
+      // Check if month index is valid
+      if (monthIndex < 0 || monthIndex > 11) return 'Invalid date'
+      
+      return `${months[monthIndex]} ${parseInt(day)}, ${year}`
+    }
+    
+    return 'Invalid date'
   } catch (error) {
-    console.error('❌ Error refreshing bookings:', error)
+    console.warn('Error formatting date:', dateString, error)
+    return 'Invalid date'
   }
+}
+
+// Get status class for styling
+const getStatusClass = (status) => {
+  if (!status) return 'status-pending'
   
-  // Close the modal
-  closeCreateModal()
+  const classes = {
+    'Pending': 'status-pending',
+    'Confirmed': 'status-confirmed',
+    'Re-schedule': 'status-reschedule',
+    'Checked-in': 'status-checkedin',
+    'Checked-out': 'status-checkedout',
+  }
+  return classes[status] || 'status-pending'
+}
+
+// Get reservation type class for styling
+const getReservationTypeClass = (type) => {
+  const classes = {
+    'Day Time': 'type-day',
+    'Night Time': 'type-night',
+    'Full Day': 'type-full'
+  }
+  return classes[type] || 'type-day'
 }
 
 // Filtered bookings based on search and filter
@@ -306,8 +314,8 @@ const filteredBookings = computed(() => {
     const query = searchQuery.value.toLowerCase()
     filtered = filtered.filter(booking => {
       return (
-        booking.guest.toLowerCase().includes(query) ||
-        booking.room.toLowerCase().includes(query)
+        (booking.guest && booking.guest.toLowerCase().includes(query)) ||
+        (booking.room && booking.room.toLowerCase().includes(query))
       )
     })
   }
@@ -319,30 +327,11 @@ const filteredBookings = computed(() => {
     })
   }
 
-  // Sort by check-in date
+  // Sort by booking date
   return filtered.sort((a, b) => {
-    return new Date(a.checkIn) - new Date(b.checkIn)
+    return new Date(a.bookingDate) - new Date(b.bookingDate)
   })
 })
-
-// Format date helper
-const formatDate = (dateString) => {
-  const [year, month, day] = dateString.split('-')
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-  return `${months[parseInt(month) - 1]} ${parseInt(day)}, ${year}`
-}
-
-// Get status class for styling
-const getStatusClass = (status) => {
-  const classes = {
-    'Pending': 'status-pending',
-    'Confirmed': 'status-confirmed',
-    'Re-schedule': 'status-reschedule',
-    'Checked-in': 'status-checkedin',
-    'Checked-out': 'status-checkedout',
-  }
-  return classes[status] || 'status-pending'
-}
 
 // Show feedback modal
 const showFeedback = (type, title, message) => {
@@ -362,6 +351,31 @@ const openBookingModal = (booking) => {
 const closeModal = () => {
   showModal.value = false
   selectedBooking.value = null
+}
+
+// Open create modal
+const openCreateModal = () => {
+  showCreateModal.value = true
+}
+
+// Close create modal
+const closeCreateModal = () => {
+  showCreateModal.value = false
+}
+
+// Handle new reservation
+const handleNewReservation = async (newReservation) => {
+  console.log('✅ New reservation created:', newReservation)
+  
+  // Refresh the bookings list
+  try {
+    await bookingsStore.fetchBookings()
+    console.log('📋 Bookings list refreshed')
+  } catch (error) {
+    console.error('❌ Error refreshing bookings:', error)
+  }
+  
+  closeCreateModal()
 }
 
 // Confirm delete
@@ -405,7 +419,6 @@ const handleStatusUpdate = async (data) => {
   
   if (result.success) {
     console.log('✅ Status updated successfully')
-    // Update selected booking if modal is open
     if (selectedBooking.value && selectedBooking.value.id === data.bookingId) {
       selectedBooking.value.status = data.newStatus
     }
@@ -421,7 +434,6 @@ const handleSaveNotes = async (data) => {
   
   if (result.success) {
     console.log('✅ Notes saved successfully')
-    // Update selected booking if modal is open
     if (selectedBooking.value && selectedBooking.value.id === data.bookingId) {
       selectedBooking.value.notes = data.notes
     }
@@ -443,6 +455,32 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+/* Add styles for reservation type badges */
+.reservation-type-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.type-day {
+  background-color: #e3f2fd;
+  color: #1976d2;
+}
+
+.type-night {
+  background-color: #e8eaf6;
+  color: #3f51b5;
+}
+
+.type-full {
+  background-color: #f3e5f5;
+  color: #7b1fa2;
+}
+
 /* Delete Button */
 .delete-btn {
   background: #dc3545;
@@ -533,12 +571,6 @@ onMounted(async () => {
   background-color: #e2e3e5;
   color: #383d41;
   border-color: #d6d8db;
-}
-
-.status-cancelled {
-  background-color: #f8d7da;
-  color: #721c24;
-  border-color: #f5c6cb;
 }
 
 /* View Button */
@@ -647,7 +679,4 @@ onMounted(async () => {
   background: #357abd;
   transform: translateY(-1px);
 }
-
-
-
 </style>

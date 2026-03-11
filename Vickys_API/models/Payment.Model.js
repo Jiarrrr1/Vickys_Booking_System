@@ -32,7 +32,7 @@ const paymentSchema = new mongoose.Schema({
         required: true,
     },
     balance: {
-        type:Number,
+        type:String,
         required: true,
         default: 0,
     },

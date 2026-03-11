@@ -2,10 +2,11 @@
 <template>
   <div>
     <HeroSection/>
+    <Availability @open-booking="handleOpenBooking" />
+
     <InfoStrip/>
     <Experience/>
-    <Availability/>
-    <Accomodations/>
+    <!-- <Accomodations/> -->
     <Why/>
     <Families/>
     <Reviews/>
@@ -21,8 +22,9 @@ import Accomodations from '@/components/Homepage/Accomodations.vue';
 import Why from '@/components/Homepage/Why.vue';
 import Families from '@/components/Homepage/Families.vue';
 import Reviews from '@/components/Homepage/Reviews.vue';
-import Availability from '@/components/Homepage/Availability.vue';
-import BookingModal from '@/modal/BookingModal.vue';
+import Availability from '@/components/Homepage/Availability.vue'
+import BookingModal from '@/modal/BookingModal.vue'
+
 
 export default {
   name: 'HomePage',
@@ -37,5 +39,15 @@ export default {
     Reviews,
     BookingModal
   }
+}
+</script>
+
+<script setup>
+  import { useBooking } from '@/utils/useBooking'
+
+const { openBooking } = useBooking()
+
+const handleOpenBooking = (room, date, reservationType) => {
+  openBooking(room, date, reservationType)
 }
 </script>

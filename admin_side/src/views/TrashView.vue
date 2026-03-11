@@ -96,7 +96,7 @@
                   {{ daysUntilExpiration(item) }} days left
                 </td>
                 <td style="text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px;">
-                  <button class="action-btn restore-btn" @click="handleRestore(item)">
+                  <button class="action-btn restore-btn" @click="openRestoreWithPassword(item)">
                     <svg viewBox="0 0 24 24" width="14" height="14">
                       <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
                       <path d="M21 3v5h-5"/>
@@ -104,7 +104,7 @@
                       <path d="M3 21v-5h5"/>
                     </svg>
                   </button>
-                  <button class="action-btn delete-btn" @click="handlePermanentDelete(item)">
+                  <button class="action-btn delete-btn" @click="openPermanentDeleteWithPassword(item)">
                     <svg viewBox="0 0 24 24" width="14" height="14">
                       <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
                       <line x1="10" y1="11" x2="10" y2="17"/>
@@ -135,38 +135,53 @@
       </div>
     </section>
     
-    <!-- Confirmation Modals -->
+    <!-- Restore Confirmation Modal with Password -->
     <ConfirmationModal
       :show="showRestoreModal"
       :title="`Restore ${capitalize(selectedItem?.itemType || 'Item')}?`"
       :message="`This will restore the ${selectedItem?.itemType} back to its original location.`"
       confirm-text="Restore"
       type="info"
-      @confirm="confirmRestore"
-      @close="showRestoreModal = false"
+      :requires-password="true"
+      @confirm="confirmRestoreWithPassword"
+      @close="closeRestoreModal"
     />
     
+    <!-- Delete Confirmation Modal with Password -->
     <ConfirmationModal
       :show="showDeleteModal"
       :title="`Delete ${capitalize(selectedItem?.itemType || 'Item')} Permanently?`"
       :message="`This action cannot be undone. The ${selectedItem?.itemType} will be permanently deleted.`"
       confirm-text="Delete Permanently"
       type="danger"
-      @confirm="confirmPermanentDelete"
-      @close="showDeleteModal = false"
+      :requires-password="true"
+      @confirm="confirmPermanentDeleteWithPassword"
+      @close="closeDeleteModal"
     />
     
-    <!-- ✅ NEW: Empty Trash Options Modal -->
+    <!-- Empty Trash Options Modal -->
     <EmptyTrashOptionsModal
       :show="showEmptyOptionsModal"
       :feedbackCount="feedbackCount"
       :bookingCount="bookingCount"
       :paymentCount="paymentCount"
-      @confirm="confirmEmptyWithOptions"
+      @confirm="handleEmptyOptionsConfirm"
       @close="showEmptyOptionsModal = false"
     />
+    
+    <!-- Password Confirmation Modal for Empty Trash -->
+    <ConfirmationModal
+      :show="showEmptyPasswordModal"
+      title="Confirm Empty Trash"
+      :message="emptyPasswordMessage"
+      confirm-text="Empty Trash"
+      type="danger"
+      :requires-password="true"
+      @confirm="confirmEmptyWithPassword"
+      @close="closeEmptyPasswordModal"
+    />
 
-    <!-- Simple Feedback Modal (replaces alerts) -->
+    <!-- Feedback Modal -->
     <div v-if="showFeedbackModal" class="feedback-modal-overlay" @click="showFeedbackModal = false">
       <div class="feedback-modal" @click.stop>
         <div class="feedback-icon" :class="feedbackType">
@@ -183,10 +198,10 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useDeletedItemsService } from '@/services/deletedItemsService'
-import ConfirmationModal from '@/modals/confirmationModal.vue'
-import EmptyTrashOptionsModal from '@/modals/emptyTrashModal.vue'  // ✅ NEW IMPORT
+import ConfirmationModal from '@/modals/confirmDeleteAdmin.vue'
+import EmptyTrashOptionsModal from '@/modals/emptyTrashModal.vue'
 
 const deletedItemsService = useDeletedItemsService()
 
@@ -196,18 +211,51 @@ const {
   filteredItems,
   feedbackCount,
   bookingCount,
-  paymentCount
+  paymentCount,
+  verifyPassword
 } = deletedItemsService
 
 const filterType = ref('')
 const showRestoreModal = ref(false)
 const showDeleteModal = ref(false)
-const showEmptyOptionsModal = ref(false)  // ✅ NEW: Replaced showEmptyModal
+const showEmptyOptionsModal = ref(false)
+const showEmptyPasswordModal = ref(false)
 const selectedItem = ref(null)
+const isProcessing = ref(false)
+
+// Store empty options temporarily
+const pendingEmptyOptions = ref(null)
+
+// Dynamic message for empty trash password modal
+const emptyPasswordMessage = computed(() => {
+  if (!pendingEmptyOptions.value) return 'Please confirm your password to empty the trash.'
+  
+  const options = pendingEmptyOptions.value
+  
+  switch (options.option) {
+    case 'all':
+      return `You are about to permanently delete ALL items (${deletedItems.value.length} items) from trash. This action cannot be undone. Please enter your password to confirm.`
+      
+    case 'older-than':
+      return `You are about to permanently delete all items older than ${options.days} days from trash. This action cannot be undone. Please enter your password to confirm.`
+      
+    case 'by-type':
+      const types = []
+      if (options.types.feedback) types.push('Feedbacks')
+      if (options.types.booking) types.push('Bookings')
+      if (options.types.payment) types.push('Payments')
+      
+      if (types.length === 0) return 'Please enter your password to confirm.'
+      return `You are about to permanently delete ${types.join(', ')} from trash. This action cannot be undone. Please enter your password to confirm.`
+      
+    default:
+      return 'Please enter your password to confirm emptying the trash.'
+  }
+})
 
 // Feedback modal state
 const showFeedbackModal = ref(false)
-const feedbackType = ref('success') // 'success', 'error', 'info'
+const feedbackType = ref('success')
 const feedbackTitle = ref('')
 const feedbackMessage = ref('')
 
@@ -277,57 +325,164 @@ const showFeedback = (type, title, message) => {
   showFeedbackModal.value = true
 }
 
-// Handle restore
-const handleRestore = (item) => {
+// Open restore modal with password requirement
+const openRestoreWithPassword = (item) => {
   selectedItem.value = item
   showRestoreModal.value = true
 }
 
-// Confirm restore
-const confirmRestore = async () => {
-  if (!selectedItem.value) return
-  
-  const result = await deletedItemsService.restoreItem(selectedItem.value._id)
-  
-  if (result.success) {
-    showFeedback('success', 'Restored!', `Item has been restored successfully.`)
-  } else {
-    showFeedback('error', 'Restore Failed', result.error || 'Failed to restore item')
-  }
-  
+// Close restore modal
+const closeRestoreModal = () => {
+  showRestoreModal.value = false
   selectedItem.value = null
 }
 
-// Handle permanent delete
-const handlePermanentDelete = (item) => {
+// Confirm restore with password
+const confirmRestoreWithPassword = async (password) => {
+  if (!password) {
+    showFeedback('error', 'Authentication Failed', 'Password is required')
+    return false
+  }
+  
+  if (isProcessing.value) return
+  isProcessing.value = true
+  
+  try {
+    const isValid = await verifyPassword(password)
+    
+    if (!isValid) {
+      showFeedback('error', 'Authentication Failed', 'Incorrect password')
+      isProcessing.value = false
+      return false
+    }
+    
+    const result = await deletedItemsService.restoreItem(selectedItem.value._id)
+    
+    if (result.success) {
+      showFeedback('success', 'Restored!', `Item has been restored successfully.`)
+      closeRestoreModal()
+      return true
+    } else {
+      showFeedback('error', 'Restore Failed', result.error || 'Failed to restore item')
+      return false
+    }
+  } catch (error) {
+    showFeedback('error', 'Error', 'An error occurred while restoring')
+    return false
+  } finally {
+    isProcessing.value = false
+  }
+}
+
+// Open permanent delete modal with password
+const openPermanentDeleteWithPassword = (item) => {
   selectedItem.value = item
   showDeleteModal.value = true
 }
 
-// Confirm permanent delete
-const confirmPermanentDelete = async () => {
-  if (!selectedItem.value) return
-  
-  const result = await deletedItemsService.permanentlyDeleteItem(selectedItem.value._id)
-  
-  if (result.success) {
-    showFeedback('success', 'Deleted!', `Item has been permanently deleted.`)
-  } else {
-    showFeedback('error', 'Delete Failed', result.error || 'Failed to delete item')
-  }
-  
+// Close delete modal
+const closeDeleteModal = () => {
+  showDeleteModal.value = false
   selectedItem.value = null
 }
 
-// ✅ NEW: Open empty trash options modal
+// Confirm permanent delete with password
+const confirmPermanentDeleteWithPassword = async (password) => {
+  if (!password) {
+    showFeedback('error', 'Authentication Failed', 'Password is required')
+    return false
+  }
+  
+  if (isProcessing.value) return
+  isProcessing.value = true
+  
+  try {
+    const isValid = await verifyPassword(password)
+    
+    if (!isValid) {
+      showFeedback('error', 'Authentication Failed', 'Incorrect password')
+      isProcessing.value = false
+      return false
+    }
+    
+    const result = await deletedItemsService.permanentlyDeleteItem(selectedItem.value._id)
+    
+    if (result.success) {
+      showFeedback('success', 'Deleted!', `Item has been permanently deleted.`)
+      closeDeleteModal()
+      return true
+    } else {
+      showFeedback('error', 'Delete Failed', result.error || 'Failed to delete item')
+      return false
+    }
+  } catch (error) {
+    showFeedback('error', 'Error', 'An error occurred while deleting')
+    return false
+  } finally {
+    isProcessing.value = false
+  }
+}
+
+// Open empty trash options modal
 const openEmptyOptions = () => {
   showEmptyOptionsModal.value = true
 }
 
-// In TrashView.vue - confirmEmptyWithOptions function
+// Handle empty options confirm - store options and show password modal
+const handleEmptyOptionsConfirm = (options) => {
+  // Validate options first
+  if (options.option === 'by-type') {
+    const types = []
+    if (options.types.feedback) types.push('feedback')
+    if (options.types.booking) types.push('booking')
+    if (options.types.payment) types.push('payment')
+    
+    if (types.length === 0) {
+      showFeedback('error', 'No Types Selected', 'Please select at least one type to delete')
+      return
+    }
+  }
+  
+  // Store options and show password modal
+  pendingEmptyOptions.value = options
+  showEmptyOptionsModal.value = false
+  showEmptyPasswordModal.value = true
+}
 
-const confirmEmptyWithOptions = async (options) => {
+// Close empty password modal
+const closeEmptyPasswordModal = () => {
+  showEmptyPasswordModal.value = false
+  pendingEmptyOptions.value = null
+}
+
+// Confirm empty with password
+const confirmEmptyWithPassword = async (password) => {
+  if (!password) {
+    showFeedback('error', 'Authentication Failed', 'Password is required')
+    return false
+  }
+  
+  if (!pendingEmptyOptions.value) {
+    showFeedback('error', 'Error', 'No empty options selected')
+    closeEmptyPasswordModal()
+    return false
+  }
+  
+  if (isProcessing.value) return
+  isProcessing.value = true
+  
   try {
+    // Verify password first
+    const isValid = await verifyPassword(password)
+    
+    if (!isValid) {
+      showFeedback('error', 'Authentication Failed', 'Incorrect password')
+      isProcessing.value = false
+      return false
+    }
+    
+    // Proceed with emptying trash based on options
+    const options = pendingEmptyOptions.value
     console.log('🔄 Emptying trash with options:', options)
     
     let result
@@ -335,12 +490,12 @@ const confirmEmptyWithOptions = async (options) => {
     switch (options.option) {
       case 'all':
         console.log('   Deleting ALL items')
-        result = await deletedItemsService.emptyAllTrash()  // ✅ This now works
+        result = await deletedItemsService.emptyAllTrash()
         break
         
       case 'older-than':
         console.log(`   Deleting items older than ${options.days} days`)
-        result = await deletedItemsService.emptyTrashOlderThan(options.days)  // ✅ This now works
+        result = await deletedItemsService.emptyTrashOlderThan(options.days)
         break
         
       case 'by-type':
@@ -350,26 +505,30 @@ const confirmEmptyWithOptions = async (options) => {
         if (options.types.payment) types.push('payment')
         
         console.log('   Deleting by types:', types)
-        
-        if (types.length === 0) {
-          showFeedback('error', 'No Types Selected', 'Please select at least one type to delete')
-          return
-        }
-        
-        result = await deletedItemsService.emptyTrashByType(types)  // ✅ This now works
+        result = await deletedItemsService.emptyTrashByType(types)
         break
+        
+      default:
+        throw new Error('Invalid empty option')
     }
     
     if (result?.success) {
       showFeedback('success', 'Trash Emptied!', result.message || 'Selected items have been removed.')
+      closeEmptyPasswordModal()
+      return true
     } else {
       showFeedback('error', 'Empty Trash Failed', result?.error || 'Failed to empty trash')
+      return false
     }
   } catch (error) {
     console.error('❌ Error emptying trash:', error)
     showFeedback('error', 'Error', 'An error occurred while emptying trash')
+    return false
+  } finally {
+    isProcessing.value = false
   }
 }
+
 // Load deleted items on mount
 onMounted(() => {
   deletedItemsService.fetchDeletedItems()

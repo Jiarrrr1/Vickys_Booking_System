@@ -9,44 +9,68 @@ const bookingRoom = reactive({
   name: '',
   icon: '',
   price: 0,
-  capacity: ''
+  capacity: '',
+  roomId: '' // ✅ Added for backend
 })
 
+// ✅ NEW: Store selected date and reservation type
+const bookingDate = ref(null)
+const reservationType = ref('Day Time')
+
 export function useBooking() {
-  function openBooking(room) {
+  // ✅ UPDATED: Accept room, date, and reservationType
+  function openBooking(room, date, type) {
     bookingRoom.id = room.id
     bookingRoom.name = room.name
     bookingRoom.icon = room.icon ?? '🏨'
     bookingRoom.price = room.price
     bookingRoom.capacity = room.capacity
+    bookingRoom.roomId = room.roomId || `ROOM${room.id}` // ✅ Added
+    
+    // ✅ NEW: Store date and reservation type
+    bookingDate.value = date
+    reservationType.value = type
+    
     isOpen.value = true
 
-    console.log('Modal State:',isOpen.value);
-
+    console.log('📖 Booking Modal Opened')
+    console.log('🏠 Room:', bookingRoom.name)
+    console.log('📅 Date:', date)
+    console.log('⏰ Type:', type)
   }
 
   function closeBooking() {
     isOpen.value = false
-    console.log('Modal State:',isOpen.value);
-    
+    console.log('📕 Booking Modal Closed')
   }
 
   function checkField(payload){
     if (!payload){
-        isFilled.value = true
+      isFilled.value = true
     }
   }
 
   function computeDownPayment(){
-    const downPayment = .5 * bookingRoom.price
+    const downPayment = 0.5 * bookingRoom.price
     return downPayment
-}
+  }
 
-function computeRemainingBalance( ){
-    const downPayment = .5 * bookingRoom.price
+  function computeRemainingBalance(){
+    const downPayment = 0.5 * bookingRoom.price
     const balance = bookingRoom.price - downPayment
     return balance
-}
+  }
 
-  return { isOpen, isFilled, bookingRoom, openBooking, closeBooking, checkField, computeDownPayment, computeRemainingBalance }
+  return { 
+    isOpen, 
+    isFilled, 
+    bookingRoom, 
+    bookingDate,        // ✅ NEW
+    reservationType,    // ✅ NEW
+    openBooking, 
+    closeBooking, 
+    checkField, 
+    computeDownPayment, 
+    computeRemainingBalance 
+  }
 }
