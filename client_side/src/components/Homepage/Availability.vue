@@ -52,86 +52,7 @@
           </div>
         </div>
 
-        <div class="calendar-widget">
-          <!-- STEP 2: Calendar Navigation -->
-          <div class="cal-header">
-            <button class="cal-nav" @click="prevMonth">‹</button>
-            <div class="cal-month">{{ currentMonthName }} {{ currentYear }}</div>
-            <button class="cal-nav" @click="nextMonth">›</button>
-          </div>
-
-          <!-- Dynamic Legend -->
-          <div class="cal-legend">
-            <div v-if="selectedRoomId === 'all'" class="legend-item">
-              <div class="legend-dot available"></div> Available
-            </div>
-            <div v-if="selectedRoomId === 'all'" class="legend-item">
-              <div class="legend-dot partially-booked"></div> Partially Booked
-            </div>
-            <div v-if="selectedRoomId === 'all'" class="legend-item">
-              <div class="legend-dot fully-booked"></div> Fully Booked
-            </div>
-            <div style="display: flex; gap: 10px;" v-else>
-              <div class="legend-item">
-                <div class="legend-dot available"></div> Available
-              </div>
-              <div class="legend-item">
-                <div class="legend-dot available-other"></div> Available (other type)
-              </div>
-              <div class="legend-item">
-                <div class="legend-dot booked-same"></div> Booked (same type)
-              </div>
-              <div class="legend-item">
-                <div class="legend-dot full-blocked"></div> Full Day Booked
-              </div>
-            </div>
-          </div>
-
-          <div class="cal-grid">
-            <div class="cal-days-header">
-              <div class="cal-day-name">Sun</div>
-              <div class="cal-day-name">Mon</div>
-              <div class="cal-day-name">Tue</div>
-              <div class="cal-day-name">Wed</div>
-              <div class="cal-day-name">Thu</div>
-              <div class="cal-day-name">Fri</div>
-              <div class="cal-day-name">Sat</div>
-            </div>
-            <div class="cal-days">
-              <!-- Empty cells -->
-              <div v-for="n in startDay" :key="'empty-' + n" class="cal-day empty"></div>
-
-              <!-- Days -->
-              <div v-for="day in daysInMonth" :key="day" class="cal-day" :class="getDayClasses(day)"
-                @click="handleDateClick(day)">
-                {{ day }}
-
-                <!-- Booking type indicators (only for single room view) -->
-                <!-- <div v-if="selectedRoomId !== 'all' && !isDatePast(day)" class="booking-indicators">
-                  <span v-if="hasBookingForType(formatDateString(day), 'Day Time')" class="indicator day"
-                    title="Booked for Day Time">🌞</span>
-                  <span v-if="hasBookingForType(formatDateString(day), 'Night Time')" class="indicator night"
-                    title="Booked for Night Time">🌙</span>
-                  <span v-if="hasBookingForType(formatDateString(day), 'Full Day')" class="indicator full"
-                    title="Booked for Full Day">🔴</span>
-                </div> -->
-
-                <!-- Availability badges (for "all rooms" view) -->
-                <span v-if="!isDateDisabled(day) && selectedRoomId === 'all'" class="availability-badge">
-                  {{ getAvailableCount(day) }}/{{ totalCapacity }}
-                </span>
-                <span v-else-if="isDatePast(day) && selectedRoomId === 'all'" class="past">
-                </span>
-                <span v-else-if="isDateDisabled(day) && selectedRoomId === 'all'" class="fully-booked-badge">
-                  Full
-                </span>
-                
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- STEP 3: Available Rooms Panel (RIGHT SIDE) -->
+          <!-- STEP 3: Available Rooms Panel (RIGHT SIDE) -->
         <div class="available-rooms-panel">
           <!-- Show when NO date selected -->
           <div v-if="!selectedDateStr" class="no-selection-state">
@@ -231,6 +152,87 @@
             </div>
           </div>
         </div>
+
+        <div class="calendar-widget">
+          <!-- STEP 2: Calendar Navigation -->
+          <div class="cal-header">
+            <button class="cal-nav" @click="prevMonth">‹</button>
+            <div class="cal-month">{{ currentMonthName }} {{ currentYear }}</div>
+            <button class="cal-nav" @click="nextMonth">›</button>
+          </div>
+
+          <!-- Dynamic Legend -->
+          <div class="cal-legend">
+            <div v-if="selectedRoomId === 'all'" class="legend-item">
+              <div class="legend-dot available"></div> Available
+            </div>
+            <div v-if="selectedRoomId === 'all'" class="legend-item">
+              <div class="legend-dot partially-booked"></div> Partially Booked
+            </div>
+            <div v-if="selectedRoomId === 'all'" class="legend-item">
+              <div class="legend-dot fully-booked"></div> Fully Booked
+            </div>
+            <div style="display: flex; gap: 10px;" v-else>
+              <div class="legend-item">
+                <div class="legend-dot available"></div> Available
+              </div>
+              <div class="legend-item">
+                <div class="legend-dot available-other"></div> Available (other type)
+              </div>
+              <div class="legend-item">
+                <div class="legend-dot booked-same"></div> Booked (same type)
+              </div>
+              <div class="legend-item">
+                <div class="legend-dot full-blocked"></div> Full Day Booked
+              </div>
+            </div>
+          </div>
+
+          <div class="cal-grid">
+            <div class="cal-days-header">
+              <div class="cal-day-name">Sun</div>
+              <div class="cal-day-name">Mon</div>
+              <div class="cal-day-name">Tue</div>
+              <div class="cal-day-name">Wed</div>
+              <div class="cal-day-name">Thu</div>
+              <div class="cal-day-name">Fri</div>
+              <div class="cal-day-name">Sat</div>
+            </div>
+            <div class="cal-days">
+              <!-- Empty cells -->
+              <div v-for="n in startDay" :key="'empty-' + n" class="cal-day empty"></div>
+
+              <!-- Days -->
+              <div v-for="day in daysInMonth" :key="day" class="cal-day" :class="getDayClasses(day)"
+                @click="handleDateClick(day)">
+                {{ day }}
+
+                <!-- Booking type indicators (only for single room view) -->
+                <!-- <div v-if="selectedRoomId !== 'all' && !isDatePast(day)" class="booking-indicators">
+                  <span v-if="hasBookingForType(formatDateString(day), 'Day Time')" class="indicator day"
+                    title="Booked for Day Time">🌞</span>
+                  <span v-if="hasBookingForType(formatDateString(day), 'Night Time')" class="indicator night"
+                    title="Booked for Night Time">🌙</span>
+                  <span v-if="hasBookingForType(formatDateString(day), 'Full Day')" class="indicator full"
+                    title="Booked for Full Day">🔴</span>
+                </div> -->
+
+                <!-- Availability badges (for "all rooms" view) -->
+                <span v-if="!isDateDisabled(day) && selectedRoomId === 'all'" class="availability-badge">
+                  {{ getAvailableCount(day) }}/{{ totalCapacity }}
+                </span>
+                <span v-else-if="isDatePast(day) && selectedRoomId === 'all'" class="past">
+                </span>
+                <span v-else-if="isDateDisabled(day) && selectedRoomId === 'all'" class="fully-booked-badge">
+                  Full
+                </span>
+                
+              </div>
+            </div>
+          </div>
+        </div>
+
+      
       </div>
 
       <!-- Policies Section (BOTTOM) -->
@@ -994,7 +996,8 @@ export default {
   min-height: 600px;
   max-height: 705px;
   overflow-y: auto;
-  grid-area: 2 / 2 / 3 / 3;
+    grid-area: 2 / 1 / 3 / 2;
+
   width: 100%;
   max-width: 500px;
   box-sizing: border-box;
@@ -1500,7 +1503,8 @@ export default {
   border: 1px solid var(--charcoal-border);
   border-radius: 12px;
   padding: 24px;
-  grid-area: 2 / 1 / 3 / 2;
+    grid-area: 2 / 2 / 3 / 3;
+
 }
 
 .cal-header {
