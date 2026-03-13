@@ -129,21 +129,20 @@ export const rooms = [
     type: 'cottage', // ✅ NEW TYPE
     quantity: 5,      // ✅ NEW: 5 cottages available
     description: 'Open-air garden cottages perfect for day trips and gatherings...',
-    capacity: '8–12 pax',
+    capacity: '8–10 pax',
     badge: 'Popular',
 
     amenities: ['Open Air', 'Tables & Chairs', 'Grill Area', 'Sink', 'Pool Access'],
-    price: 800,
+    price: 600,
 
     wide: false,
     prices: [
-      { amount: 800, label: 'per day' }
+      { amount: 600, label: 'per day' }
     ],
     features: [
       { icon: '🏡', label: 'Garden Setting' },
       { icon: '🪑', label: 'Tables & Chairs' },
       { icon: '🔥', label: 'Grill Area' },
-      { icon: '💧', label: 'Water & Sink' },
       { icon: '🏊', label: 'Pool Access' }
     ]
   }
@@ -171,22 +170,22 @@ export const RESERVATION_TYPE_INFO = {
   'Day Time': {
     label: 'Day Time',
     icon: '🌞',
-    startTime: '6:00 AM',
-    endTime: '6:00 PM',
+    startTime: '8:00 AM',
+    endTime: '4:00 PM',
     duration: '12 hours'
   },
   'Night Time': {
     label: 'Night Time',
     icon: '🌙',
-    startTime: '6:00 PM',
-    endTime: '6:00 AM (next day)',
+    startTime: '5:00 PM',
+    endTime: '1:00 AM (next day)',
     duration: '12 hours'
   },
   'Full Day': {
     label: 'Full Day',
     icon: '☀️🌙',
-    startTime: '6:00 AM',
-    endTime: '6:00 AM (next day)',
+    startTime: '8:00 AM',
+    endTime: '8:00 AM (next day)',
     duration: '24 hours'
   }
 }
@@ -271,6 +270,8 @@ function formatLocalDate(date) {
  * Get available quantity for a specific room
  */
 export function getAvailableQuantity(roomId, date, reservationType, existingReservations = []) {
+
+
   const room = getRoomById(roomId)
   if (!room) return 0
   
@@ -280,7 +281,7 @@ export function getAvailableQuantity(roomId, date, reservationType, existingRese
       ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
       : String(date)
   
-  console.log(`🔍 Checking availability for ${room.name} (ID: ${roomId}) on ${targetDate}`)
+  // console.log(`🔍 Checking availability for ${room.name} (ID: ${roomId}) on ${targetDate}`)
   
   // Get reservations for this room on this date
   const roomReservations = existingReservations.filter(res => {

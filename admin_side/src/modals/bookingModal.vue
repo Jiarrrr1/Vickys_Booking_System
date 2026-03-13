@@ -36,7 +36,7 @@
           </div>
           <div class="info-item">
             <span class="info-label">Number of Rooms/Cottages</span>
-            <span class="info-value">{{ formatDate(booking.roomQuantity) }}</span>
+            <span class="info-value">{{ booking.roomQuantity || 1 }}</span>
           </div>
           
           <div class="info-item">
@@ -201,38 +201,60 @@
           </div>
         </div>
 
-        <!-- Status Update Section -->
-        <div class="status-update-section">
-          <h3>Update Status</h3>
-          <div class="status-controls">
-            <select 
-              v-model="selectedStatus" 
-              class="status-select"
-              :class="getStatusClass(selectedStatus)"
-            >
-              <!-- <option value="Pending">Pending</option> -->
-              <option value="Confirmed">Confirmed</option>
-              <option value="Checked-in">Checked-in</option>
-              <option value="Success">Checked-out</option>
-              <option value="Re-schedule">Re-schedule</option>
-            </select>
-            
-            <button 
-              class="update-btn" 
-              @click="updateStatus"
-              :disabled="isUpdatingStatus || selectedStatus === booking.status"
-              :class="{
-                'btn-success': isUpdatingStatus === 'success',
-                'btn-error': isUpdatingStatus === 'error'
-              }"
-            >
-              <span v-if="!isUpdatingStatus">Update Status</span>
-              <span v-else-if="isUpdatingStatus === 'success'">✓ Updated!</span>
-              <span v-else-if="isUpdatingStatus === 'error'">✗ Failed</span>
-              <span v-else class="loading-dots">Updating</span>
-            </button>
-          </div>
-        </div>
+<!-- In bookingModal.vue, update the status update section (around line 420) -->
+
+<!-- Status Update Section -->
+<div class="status-update-section">
+  <h3>Update Status</h3>
+  
+  <!-- Re-schedule Date Input (show when Re-schedule is selected) -->
+  <div v-if="selectedStatus === 'Re-schedule'" class="reschedule-section">
+    <div class="form-group">
+      <label for="newDate">New Booking Date <span class="required-star">*</span></label>
+      <input
+        id="newDate"
+        v-model="newScheduleDate"
+        type="date"
+        required
+        :min="getTodayDate()"
+        class="date-input"
+        :class="{ 'error-input': !newScheduleDate && selectedStatus === 'Re-schedule' }"
+      />
+      <p v-if="!newScheduleDate && selectedStatus === 'Re-schedule'" class="error-message">
+        New booking date is required for re-schedule
+      </p>
+      <p v-else class="help-text">Select the new date for this booking</p>
+    </div>
+  </div>
+
+  <div class="status-controls">
+    <select 
+      v-model="selectedStatus" 
+      class="status-select"
+      :class="getStatusClass(selectedStatus)"
+    >
+      <option value="Confirmed">Confirmed</option>
+      <option value="Checked-in">Checked-in</option>
+      <option value="Success">Success</option>
+      <!-- <option value="Re-schedule">Re-schedule</option> -->
+    </select>
+    
+    <button 
+      class="update-btn" 
+      @click="updateStatus"
+      :disabled="isUpdatingStatus || !isStatusValid"
+      :class="{
+        'btn-success': isUpdatingStatus === 'success',
+        'btn-error': isUpdatingStatus === 'error'
+      }"
+    >
+      <span v-if="!isUpdatingStatus">Update Status</span>
+      <span v-else-if="isUpdatingStatus === 'success'">✓ Updated!</span>
+      <span v-else-if="isUpdatingStatus === 'error'">✗ Failed</span>
+      <span v-else class="loading-dots">Updating</span>
+    </button>
+  </div>
+</div>
 
         <!-- Admin Notes -->
         <div class="notes-section">
@@ -286,6 +308,7 @@ const props = defineProps({
 const emit = defineEmits(['close', 'update-status', 'save-notes', 'payment-success'])
 
 const selectedStatus = ref('')
+const newScheduleDate = ref('') // ✅ NEW: For re-schedule date
 const adminNotes = ref('')
 const isSavingNotes = ref(false)
 const isUpdatingStatus = ref(false)
@@ -348,6 +371,7 @@ watch(() => props.booking, (newBooking) => {
   if (newBooking) {
     selectedStatus.value = newBooking.status || 'Pending'
     adminNotes.value = newBooking.notes || ''
+    newScheduleDate.value = '' // Reset schedule date
     
     // Reset payment form
     paymentForm.amount = Number(newBooking.remainingBalance || 0)
@@ -364,6 +388,15 @@ watch(() => props.booking, (newBooking) => {
     })
   }
 }, { immediate: true })
+
+// ✅ NEW: Get today's date in YYYY-MM-DD format for min date
+const getTodayDate = () => {
+  const today = new Date()
+  const year = today.getFullYear()
+  const month = String(today.getMonth() + 1).padStart(2, '0')
+  const day = String(today.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
 
 // Format date helper
 const formatDate = (dateString) => {
@@ -394,10 +427,9 @@ const formatNumber = (num) => {
 // Get status class for styling
 const getStatusClass = (status) => {
   const classes = {
-    'Pending': 'status-pending',
     'Confirmed': 'status-confirmed',
     'Checked-in': 'status-checkedin',
-    'Checked-out': 'status-checkedout',
+    'Success': 'status-success',
     'Re-schedule': 'status-reschedule',
     'Cancelled': 'status-cancelled'
   }
@@ -487,7 +519,7 @@ const processPayment = async () => {
       guestName: props.booking.guest,
       email: props.booking.email,
       phoneNumber: props.booking.phoneNumber,
-      roomName: props.booking.room,
+      roomName: props.booking.roomName,
       amount: Number(paymentForm.amount),
       balance: newBalance,
       paymentMethod: paymentForm.method === 'GCash' ? 'GCash' : 'Cash',
@@ -526,18 +558,26 @@ const processPayment = async () => {
   }
 }
 
-// Update status with loading state
+// ✅ FIXED: Update status with new schedule validation
 const updateStatus = async () => {
   if (selectedStatus.value === props.booking.status) return
+  
+  // ✅ Validate new schedule date for Re-schedule status
+  if (selectedStatus.value === 'Re-schedule' && !newScheduleDate.value) {
+    paymentErrors.amount = 'Please select a new booking date for re-schedule' // Reuse error display
+    return
+  }
   
   isUpdatingStatus.value = true
   
   try {
+    // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 500))
     
     emit('update-status', {
       bookingId: props.booking.id,
-      newStatus: selectedStatus.value
+      newStatus: selectedStatus.value,
+      newSchedule: selectedStatus.value === 'Re-schedule' ? newScheduleDate.value : null
     })
     
     isUpdatingStatus.value = 'success'
@@ -584,9 +624,48 @@ const saveNotes = async () => {
     isSavingNotes.value = false
   }
 }
+
+// Add this computed property to validate status changes
+const isStatusValid = computed(() => {
+  if (selectedStatus.value === props.booking?.status) return false
+  
+  // For re-schedule, require new schedule date
+  if (selectedStatus.value === 'Re-schedule') {
+    return !!newScheduleDate.value
+  }
+  
+  return true
+})
 </script>
 
 <style scoped>
+/* ========================================
+   NEW: Re-schedule Section Styles
+   ======================================== */
+.reschedule-section {
+  margin-top: 16px;
+  padding: 16px;
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+
+.date-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: border-color 0.2s;
+}
+
+.date-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
 /* Add reservation type badge styles */
 .reservation-badge {
   display: inline-block;
@@ -916,10 +995,10 @@ const saveNotes = async () => {
   border: 1px solid #b8daff;
 }
 
-.status-checkedout {
-  background-color: #e2e3e5;
-  color: #383d41;
-  border: 1px solid #d6d8db;
+.status-success {
+  background-color: #72d88a;
+  color: #0e421b;
+  border: 1px solid #475d4c;
 }
 
 .status-reschedule {

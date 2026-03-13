@@ -1,9 +1,10 @@
 // src/utils/useBookingModal.js
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, watch } from 'vue'
 import { api } from '../services/api'
+import { getAvailableQuantity } from '../data/rooms' // Add this import
 
-export function useBookingModal(bookingRoom, bookingDate, reservationType, isOpen, closeBooking) {
-  // ✅ UPDATED: 3 steps instead of 4
+export function useBookingModal(bookingRoom, bookingDate, reservationType, isOpen, closeBooking, reservationsRef = ref([])) {
+  // Steps
   const stepLabels = ['Guest Info', 'Review', 'Payment'] 
   const currentStep = ref(1)
   const submitted = ref(false)
@@ -11,6 +12,12 @@ export function useBookingModal(bookingRoom, bookingDate, reservationType, isOpe
   const isSubmitting = ref(false)
   const paymentLocked = ref(false)
   const paymentCompleted = ref(false)
+
+  const forceUpdate = ref(0)
+  const availableQuantity = ref(5)
+const maxQuantity = ref(1)
+const isLoadingAvailability = ref(true)
+
   
   // Field validation errors
   const fieldErrors = reactive({
@@ -28,16 +35,77 @@ export function useBookingModal(bookingRoom, bookingDate, reservationType, isOpe
     guestCount: 2,
     specialReq: '',
     payType: 'down',
-    rfrncNumber: ''
+    rfrncNumber: '',
+    roomQuantity: 1
   })
+
+    const reservations = reservationsRef
+
+  // Store reservations from parent if available
 
   // ========================================
   // COMPUTED PROPERTIES
   // ========================================
+// Keep isCottage as computed (it's simple)
+const isCottage = computed(() => {
+  return bookingRoom.value?.id === 5
+})
+ // Create a function to calculate availability
+const calculateAvailability = () => {
+  console.log('🧮 Calculating availability with reservations:', reservations.value)
+  
+  if (!bookingRoom.value || !bookingDate.value || !reservationType.value) {
+    console.log('❌ Missing data for availability calculation')
+    return bookingRoom.value?.quantity || 5
+  }
+  
+  // Format date to YYYY-MM-DD
+  const date = bookingDate.value
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const formattedDate = `${year}-${month}-${day}`
+  
+  console.log('📅 Calculating availability for cottage:', {
+    roomId: bookingRoom.value.id,
+    roomName: bookingRoom.value.name,
+    date: formattedDate,
+    type: reservationType.value,
+    reservations: reservations.value.length
+  })
+  
+  // Get available quantity using your existing function
+  const available = getAvailableQuantity(
+    bookingRoom.value.id,
+    formattedDate,
+    reservationType.value,
+    reservations.value
+  )
+  
+  console.log('✅ Calculated available quantity:', available)
+  return available
+}
 
-  // ✅ UPDATED: Total price is just the room price (no nights)
+// Update both refs when dependencies change
+const updateAvailability = () => {
+  isLoadingAvailability.value = true
+  const avail = calculateAvailability()
+  availableQuantity.value = avail
+  maxQuantity.value = isCottage.value ? Math.max(1, avail) : 1
+  isLoadingAvailability.value = false
+}
+
+
+
+
+
+
+
+  // Total price with quantity
   const totalPrice = computed(() => {
-    return bookingRoom.price || 0
+    const basePrice = bookingRoom.value?.price || 0
+    const quantity = isCottage.value ? (form.roomQuantity || 1) : 1
+    return basePrice * quantity
   })
 
   // Calculate downpayment (50% of total price)
@@ -57,7 +125,7 @@ export function useBookingModal(bookingRoom, bookingDate, reservationType, isOpe
     }
   })
 
-  // ✅ NEW: Get reservation type time display
+  // Reservation type time display
   const reservationTypeTime = computed(() => {
     const times = {
       'Day Time': '6:00 AM - 6:00 PM',
@@ -65,6 +133,35 @@ export function useBookingModal(bookingRoom, bookingDate, reservationType, isOpe
       'Full Day': '6:00 AM - 6:00 AM (24 hours)'
     }
     return times[reservationType.value] || ''
+  })
+
+  // ========================================
+  // QUANTITY FUNCTIONS
+  // ========================================
+
+  const incrementQuantity = () => {
+    if (form.roomQuantity < maxQuantity.value) {
+      form.roomQuantity++
+    }
+  }
+
+  const decrementQuantity = () => {
+    if (form.roomQuantity > 1) {
+      form.roomQuantity--
+    }
+  }
+
+
+  // Reset quantity when room changes
+  watch(() => bookingRoom.value, (newRoom) => {
+    if (newRoom) {
+      form.roomQuantity = 1
+    }
+  })
+
+  // Reset quantity when date changes
+  watch(() => bookingDate.value, () => {
+    form.roomQuantity = 1
   })
 
   // ========================================
@@ -91,7 +188,6 @@ export function useBookingModal(bookingRoom, bookingDate, reservationType, isOpe
       fieldErrors.email = ''
     }
     
-    // Convert phone to string if it's a number
     const phoneStr = String(form.phone).trim()
     if (!phoneStr) {
       fieldErrors.phone = 'This field is required'
@@ -103,11 +199,16 @@ export function useBookingModal(bookingRoom, bookingDate, reservationType, isOpe
       fieldErrors.phone = ''
     }
     
+    // Validate quantity doesn't exceed available
+    if (isCottage.value && form.roomQuantity > maxQuantity.value) {
+      fieldErrors.roomQuantity = `Only ${maxQuantity.value} cottages available`
+      isValid = false
+    }
+    
     return isValid
   }
 
   function validateStep2() {
-    // Step 2 is now Review, no validation needed
     return true
   }
 
@@ -132,28 +233,22 @@ export function useBookingModal(bookingRoom, bookingDate, reservationType, isOpe
   // ========================================
 
   function nextStep() {
-    // Validate current step
     if (currentStep.value === 1 && !validateStep1()) {
-      console.log('❌ Step 1 validation failed')
       return
     }
     
     if (currentStep.value === 2 && !validateStep2()) {
-      console.log('❌ Step 2 validation failed')
       return
     }
     
-    // If on payment step, submit the booking
     if (currentStep.value === 3) {
       if (!validateStep3()) {
-        console.log('❌ Step 3 validation failed')
         return
       }
       submitBooking()
       return
     }
     
-    // Move to next step
     currentStep.value++
   }
 
@@ -167,69 +262,63 @@ export function useBookingModal(bookingRoom, bookingDate, reservationType, isOpe
   // FORM SUBMISSION
   // ========================================
 
-// In useBookingModal.js - submitBooking function
-async function submitBooking() {
-  isSubmitting.value = true
-  
-  try {
-    console.log('📤 Submitting booking...')
+  async function submitBooking() {
+    isSubmitting.value = true
     
-    // Format the date as YYYY-MM-DD using local date components
-    const date = bookingDate.value
-    const year = date.getFullYear()
-    const month = String(date.getMonth() + 1).padStart(2, '0')
-    const day = String(date.getDate()).padStart(2, '0')
-    const formattedDate = `${year}-${month}-${day}`
-    
-    console.log('📅 Booking date (local):', formattedDate)
-    
-    const reservationData = {
-      fullName: form.name,
-      email: form.email,
-      phoneNumber: `+63${form.phone}`,
-      guestQuantity: form.guestCount,
-      specialRequests: form.specialReq || '',
+    try {
+      console.log('📤 Submitting booking...')
       
-      // ✅ Use the manually formatted date string
-      bookingDate: formattedDate,
+      const date = bookingDate.value
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      const formattedDate = `${year}-${month}-${day}`
       
-      // Room details
-      roomId: bookingRoom.roomId,
-      roomName: bookingRoom.name,
+      const reservationData = {
+        fullName: form.name,
+        email: form.email,
+        phoneNumber: `+63${form.phone}`,
+        guestQuantity: form.guestCount,
+        specialRequests: form.specialReq || '',
+        
+        bookingDate: formattedDate,
+        
+        // Room details
+        roomId: bookingRoom.value.roomId,
+        roomName: bookingRoom.value.name,
+        roomQuantity: isCottage.value ? form.roomQuantity : 1,
+        
+        // Reservation type
+        reservationType: reservationType.value,
+        
+        // Pricing
+        totalAmount: totalPrice.value,
+        downpayment: form.payType === 'down' ? computeDownpayment.value : totalPrice.value,
+        remainingBalance: computeRemainingBalance.value,
+        
+        // Payment
+        paymentType: form.payType === 'down' ? 'Downpayment' : 'Full Payment',
+        paymentMethod: 'GCash',
+        referenceNumber: form.rfrncNumber,
+        
+        // Status
+        status: 'Pending'
+      }
       
-      // Reservation type
-      reservationType: reservationType.value,
+      console.log('📦 Reservation Data:', reservationData)
       
-      // Pricing
-      totalAmount: totalPrice.value,
-      downpayment: form.payType === 'down' ? computeDownpayment.value : totalPrice.value,
-      remainingBalance: computeRemainingBalance.value,
+      const response = await api.createReservation(reservationData)
       
-      // Payment
-      paymentType: form.payType === 'down' ? 'Downpayment' : 'Full Payment',
-      paymentMethod: 'GCash',
-      referenceNumber: form.rfrncNumber,
+      refNumber.value = response.data?.referenceNumber || response.referenceNumber || `REF${Date.now()}`
+      submitted.value = true
       
-      // Status
-      status: 'Pending'
+    } catch (error) {
+      console.error('❌ Booking submission failed:', error)
+      alert('Failed to submit booking. Please try again.')
+    } finally {
+      isSubmitting.value = false
     }
-    
-    console.log('📦 Reservation Data:', reservationData)
-    
-    const response = await api.createReservation(reservationData)
-    
-    console.log('✅ Booking submitted successfully:', response)
-    
-    refNumber.value = response.data?.referenceNumber || response.referenceNumber || `REF${Date.now()}`
-    submitted.value = true
-    
-  } catch (error) {
-    console.error('❌ Booking submission failed:', error)
-    alert('Failed to submit booking. Please try again.')
-  } finally {
-    isSubmitting.value = false
   }
-}
 
   // ========================================
   // UTILITY FUNCTIONS
@@ -257,14 +346,14 @@ async function submitBooking() {
     form.phone = ''
     form.guestCount = 2
     form.specialReq = ''
-    form.payType = 'Downpayment'
+    form.payType = 'down'
     form.rfrncNumber = ''
+    form.roomQuantity = 1
     
     currentStep.value = 1
     submitted.value = false
     refNumber.value = ''
     
-    // Clear errors
     Object.keys(fieldErrors).forEach(key => {
       fieldErrors[key] = ''
     })
@@ -275,29 +364,106 @@ async function submitBooking() {
     closeBooking()
   }
 
+  watch(
+  [
+    () => bookingRoom.value,
+    () => bookingDate.value,
+    () => reservationType.value,
+    () => reservations.value,
+    () => reservations.value?.length,
+    () => isOpen.value // Add isOpen to dependencies
+  ],
+  () => {
+    console.log('🔄 Dependencies changed, recalculating availability', {
+      room: bookingRoom.value?.id,
+      date: bookingDate.value,
+      type: reservationType.value,
+      reservationsLength: reservations.value?.length,
+      isOpen: isOpen.value,
+      reservationsData: reservations.value
+    })
+    
+    // Only calculate when modal is open and we have all data
+    if (!isOpen.value) {
+      console.log('⏸️ Modal not open, skipping calculation')
+      return
+    }
+    
+    isLoadingAvailability.value = true
+    
+    if (!bookingRoom.value || !bookingDate.value || !reservationType.value) {
+      console.log('❌ Missing data for availability calculation')
+      availableQuantity.value = bookingRoom.value?.quantity || 5
+      maxQuantity.value = isCottage.value ? Math.max(1, availableQuantity.value) : 1
+      isLoadingAvailability.value = false
+      return
+    }
+    
+    // Format date to YYYY-MM-DD
+    const date = bookingDate.value
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    const formattedDate = `${year}-${month}-${day}`
+    
+    console.log('📅 Calculating availability with reservations:', {
+      roomId: bookingRoom.value.id,
+      date: formattedDate,
+      type: reservationType.value,
+      reservationsCount: reservations.value?.length,
+      reservationsData: reservations.value
+    })
+    
+    // Get available quantity
+    const available = getAvailableQuantity(
+      bookingRoom.value.id,
+      formattedDate,
+      reservationType.value,
+      reservations.value || []
+    )
+    
+    console.log('✅ Calculated available quantity:', available)
+    
+    availableQuantity.value = available
+    maxQuantity.value = isCottage.value ? Math.max(1, available) : 1
+    isLoadingAvailability.value = false
+  },
+  { 
+    deep: true, 
+    immediate: true
+  }
+)
+
   // ========================================
   // RETURN
   // ========================================
 
   return {
-    stepLabels,
-    currentStep,
-    submitted,
-    refNumber,
-    fieldErrors,
-    form,
-    totalPrice,
-    computeDownpayment,
-    computeRemainingBalance,
-    reservationTypeTime, // ✅ NEW
-    nextStep,
-    prevStep,
-    resetForm,
-    bookAnother,
-    formatDate,
-    preventTyping,
-    isSubmitting,
-    paymentCompleted,
-    paymentLocked
-  }
+  stepLabels,
+  currentStep,
+  submitted,
+  refNumber,
+  fieldErrors,
+  form,
+  totalPrice,
+  computeDownpayment,
+  computeRemainingBalance,
+  reservationTypeTime,
+  nextStep,
+  prevStep,
+  resetForm,
+  bookAnother,
+  formatDate,
+  preventTyping,
+  isSubmitting,
+  paymentCompleted,
+  paymentLocked,
+  // Updated exports
+  isCottage,
+  maxQuantity, // Now a ref
+  availableQuantity, // Now a ref
+  isLoadingAvailability,
+  incrementQuantity,
+  decrementQuantity
+}
 }

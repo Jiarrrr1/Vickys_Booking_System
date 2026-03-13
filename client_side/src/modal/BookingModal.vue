@@ -5,15 +5,15 @@
       <div v-if="submitted" class="success-view">
         <!-- Close button -->
         <button class="success-close-btn" @click="closeSuccessModal">✕</button>
-        
+
         <div class="success-icon">✓</div>
         <div class="success-title">Booking Submitted!</div>
         <div class="success-subtitle">Your reservation has been submitted successfully</div>
-        
+
         <!-- Payment Summary in Success Modal -->
         <div class="success-payment-summary">
           <h3 class="summary-title">Payment Summary</h3>
-          
+
           <div class="summary-row">
             <span>Room:</span>
             <strong>{{ bookingRoom.name }}</strong>
@@ -26,9 +26,9 @@
             <span>Reservation Type:</span>
             <strong>{{ reservationType }}</strong>
           </div>
-          
+
           <div class="summary-divider"></div>
-          
+
           <div class="summary-row total-row">
             <span>Total Amount:</span>
             <strong>₱{{ totalPrice.toLocaleString() }}</strong>
@@ -45,7 +45,7 @@
             <span>Status:</span>
             <strong>✓ Fully Paid</strong>
           </div>
-          
+
           <div class="reference-box">
             <div class="summary-row">
               <span>Reference No.:</span>
@@ -61,18 +61,50 @@
           <strong>Wait for our confirmation email. <br>Thank you for choosing us!</strong>
         </div>
         <div class="success-refnum">Booking #: {{ refNumber }}</div>
-        
+
         <button class="success-done-btn" @click="closeSuccessModal">
           Done
         </button>
       </div>
-      
+
       <div v-if="!submitted" class="booking-modal">
         <!-- ─── LOADING STATE ─── -->
-        <div v-if="isSubmitting" class="loading-overlay">
-          <div class="loading-spinner"></div>
-          <div class="loading-text">Submitting your booking...</div>
-        </div>
+        <div v-if="isSubmitting" class="loading-overlay" style="
+  position: fixed;
+  top: 30%;
+  left: 40%;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  backdrop-filter: blur(5px);
+  height: 20vh;
+  width: 20vw;
+">
+  <div class="loading-spinner" style="
+    width: 60px;
+    height: 60px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #667eea;
+    border-radius: 50%;
+    animation: spin 2s linear infinite;
+    margin-bottom: 20px;
+  "></div>
+  <div class="loading-text" style="
+    font-size: 18px;
+    color: #333;
+    font-weight: 500;
+    font-family: 'Inter', sans-serif;
+    letter-spacing: 0.5px;
+  ">Submitting your booking...</div>
+  
+  
+</div>
 
         <!-- ─── FORM VIEW ─── -->
         <div v-else>
@@ -139,13 +171,39 @@
                 </label>
                 <textarea v-model="form.specialReq" placeholder="Any special arrangements or notes…"></textarea>
               </div>
+<div v-if="bookingRoom.id === 5" class="fgrp">
+  <label>Cottage Quantity</label>
+  <div class="quantity-selector">
+    <button 
+      type="button" 
+      class="qty-btn" 
+      @click="decrementQuantity"
+      :disabled="form.roomQuantity <= 1"
+    >−</button>
+    <input 
+      v-model.number="form.roomQuantity" 
+      type="number" 
+      min="1" 
+      :max="maxQuantity" 
+      readonly
+    >
+    <button 
+      type="button" 
+      class="qty-btn" 
+      @click="incrementQuantity"
+      :disabled="form.roomQuantity >= maxQuantity"
+    >+</button>
+  </div>
+  <small class="help-text">{{ maxQuantity }} cottages available on this date</small>
+</div>
+
             </div>
 
             <!-- STEP 2 — Review -->
             <div v-show="currentStep === 2" class="form-step">
               <div class="step-title">Review Your Booking</div>
               <div class="step-sub">Review your details before proceeding to payment.</div>
-              
+
               <div class="sum-card">
                 <div class="sum-card-head">
                   <span class="sum-head-label">Booking Summary</span>
@@ -155,6 +213,10 @@
                   <div class="sum-row"><span>Guest Name</span><strong>{{ form.name || '—' }}</strong></div>
                   <div class="sum-row"><span>Email</span><strong>{{ form.email || '—' }}</strong></div>
                   <div class="sum-row"><span>Contact Number</span><strong>+63 {{ form.phone || '—' }}</strong></div>
+                  <div v-if="isCottage" class="sum-row">
+                    <span>Cottage Quantity</span>
+                    <strong>{{ form.roomQuantity }}</strong>
+                  </div>
                   <div class="sum-row"><span>Number of Guests</span><strong>{{ form.guestCount }}</strong></div>
                   <div class="sum-row"><span>Date</span><strong>{{ formatDate(bookingDate) || '—' }}</strong></div>
                   <div class="sum-row"><span>Reservation Type</span><strong>{{ reservationType || '—' }}</strong></div>
@@ -176,7 +238,7 @@
             <div v-show="currentStep === 3" class="form-step">
               <div class="step-title">Payment</div>
               <div class="step-sub">Complete your payment to confirm booking</div>
-              
+
               <div class="gcash-badge">
                 <div class="gcash-icon">📱</div>
                 <div>
@@ -185,18 +247,18 @@
                 </div>
               </div>
 
-              <div class="qr-code">        
+              <div class="qr-code">
                 Scan the QR code to pay
                 <img src="../assets/images/QRCode.svg" alt="GCash QR Code" width="200px">
               </div>
-              
+
               <div class="fgrp">
                 <label>Payment Type</label>
                 <div class="pay-cards">
                   <div class="pay-card" :class="{ selected: form.payType === 'down' }" @click="form.payType = 'down'">
                     <div class="pay-card-check">✓</div>
                     <span class="pay-card-label">Downpayment (50%)</span>
-                    <span class="pay-card-amount">₱{{ computeDownpayment?.toLocaleString() ?? '0'}}</span>
+                    <span class="pay-card-amount">₱{{ computeDownpayment?.toLocaleString() ?? '0' }}</span>
                   </div>
                   <div class="pay-card" :class="{ selected: form.payType === 'full' }" @click="form.payType = 'full'">
                     <div class="pay-card-check">✓</div>
@@ -229,10 +291,23 @@
 </template>
 
 <script setup>
+import { ref } from 'vue'
 import { useBooking } from '@/utils/useBooking'
 import { useBookingModal } from '@/utils/useBookingModal'
 
-const { isOpen, bookingRoom, bookingDate, reservationType, closeBooking } = useBooking()
+const { isOpen, bookingRoom, bookingDate, reservationType, closeBooking, bookingReservations } = useBooking()
+
+// Log to see what's coming from useBooking
+console.log('📋 bookingReservations from useBooking:', bookingReservations)
+console.log('📋 bookingReservations value:', bookingReservations?.value)
+
+// Add this in BookingModal.vue after the useBookingModal call
+import { watchEffect } from 'vue'
+
+// Add this to watch for changes in bookingReservations
+watchEffect(() => {
+  console.log('👀 bookingReservations changed:', bookingReservations?.value)
+})
 
 const {
   stepLabels,
@@ -250,7 +325,21 @@ const {
   formatDate,
   preventTyping,
   isSubmitting,
-} = useBookingModal(bookingRoom, bookingDate, reservationType, isOpen, closeBooking)
+  isCottage,
+  maxQuantity,
+  availableQuantity,
+  incrementQuantity,
+  decrementQuantity
+} = useBookingModal(
+  bookingRoom, 
+  bookingDate, 
+  reservationType, 
+  isOpen, 
+  closeBooking, 
+  bookingReservations // Pass the ref directly, not .value
+)
+
+console.log('✅ useBookingModal called with reservations:', bookingReservations?.value)
 
 const closeSuccessModal = () => {
   closeBooking()
@@ -258,7 +347,7 @@ const closeSuccessModal = () => {
 }
 </script>
 
-<style scoped>  
+<style scoped>
 /* Success View - Compact Version */
 .success-view {
   position: relative;
@@ -314,10 +403,28 @@ const closeSuccessModal = () => {
 }
 
 @keyframes scaleIn {
-  0% { transform: scale(0); opacity: 0; }
-  50% { transform: scale(1.1); }
-  100% { transform: scale(1); opacity: 1; }
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+
+  50% {
+    transform: scale(1.1);
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
+
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      50% { transform: rotate(180deg);}
+      100% { transform: rotate(360deg); }
+    }
+
 
 .success-title {
   font-size: 22px;
@@ -341,7 +448,7 @@ const closeSuccessModal = () => {
   max-width: 350px;
   margin: 0 auto 15px;
   text-align: left;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .summary-title {
@@ -489,5 +596,47 @@ const closeSuccessModal = () => {
   font-size: 11px;
   color: #6b7280;
   margin-top: 4px;
+}
+
+
+.quantity-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.quantity-selector input {
+  width: 60px;
+  text-align: center;
+  -moz-appearance: textfield;
+}
+
+.quantity-selector input::-webkit-outer-spin-button,
+.quantity-selector input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.qty-btn {
+  width: 36px;
+  height: 36px;
+  background: var(--gold);
+  border: none;
+  border-radius: 6px;
+  color: var(--charcoal);
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.qty-btn:hover:not(:disabled) {
+  background: var(--gold-light);
+  transform: scale(1.05);
+}
+
+.qty-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
 }
 </style>

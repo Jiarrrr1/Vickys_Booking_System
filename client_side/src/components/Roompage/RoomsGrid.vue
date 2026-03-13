@@ -35,9 +35,6 @@
                 <div class="rc-price">₱{{ room.price.toLocaleString() }}</div>
                 <div class="rc-price-label">per night</div>
               </div>
-              <button class="rc-book-btn" @click="openBooking(room)">
-                Book Now
-              </button>
             </div>
           </div>
         </div>

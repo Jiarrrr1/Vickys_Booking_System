@@ -20,7 +20,7 @@ const transformBooking = (backendBooking) => ({
   guest: backendBooking.fullName,
   guestQuantity: backendBooking.guestQuantity,
   roomId: backendBooking.roomId, // ✅ CRITICAL: Preserve roomId
-    roomName: backendBooking.roomName, // ✅ CRITICAL: Preserve roomName  guests: backendBooking.guestQuantity,
+  roomName: backendBooking.roomName, // ✅ CRITICAL: Preserve roomName 
   bookingDate: backendBooking.bookingDate || backendBooking.checkIn || null,
   reservationType: backendBooking.reservationType,
   status: backendBooking.status || 'Confirmed',
@@ -237,19 +237,43 @@ async createReservationWithPayment(reservationData) {
   }
 },
 
-  async updateBookingStatus(id, status) {
+  async updateBookingStatus(id, status, newSchedule = null) {
     try {
-      const response = await apiClient.patch(`/updateStatus/${id}`, { status })
+      console.log(`📝 Updating booking #${id}:`, { status, newSchedule })
       
+      // ✅ Build payload with newSchedule if provided
+      const payload = {
+        status: status
+      }
+      
+      if (newSchedule) {
+        payload.newSchedule = newSchedule
+      }
+      
+      console.log('Sending payload:', payload)
+      
+      const response = await apiClient.patch(`/updateStatus/${id}`, payload)
+      
+      // Update local state
       const booking = state.bookings.find(b => b.id === id)
       if (booking) {
         booking.status = status
+        
+        // ✅ Update booking date if rescheduled
+        if (newSchedule) {
+          booking.bookingDate = newSchedule
+        }
       }
       
       console.log(`✅ Booking #${id} status updated to: ${status}`)
+      if (newSchedule) {
+        console.log(`📅 New booking date: ${newSchedule}`)
+      }
+      
       return { success: true, data: response.data }
     } catch (error) {
       console.error('❌ Update status error:', error)
+      console.error('Error response:', error.response?.data)
       return { success: false, error: error.message }
     }
   },

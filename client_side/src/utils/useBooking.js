@@ -4,73 +4,62 @@ import { ref, reactive } from 'vue'
 const isOpen = ref(false)
 const isFilled = ref(false)
 
-const bookingRoom = reactive({
+const bookingRoom = ref({
   id: null,
   name: '',
   icon: '',
   price: 0,
   capacity: '',
-  roomId: '' // ✅ Added for backend
+  roomId: '',
+  quantity: 1,
+  type: ''
 })
 
-// ✅ NEW: Store selected date and reservation type
 const bookingDate = ref(null)
 const reservationType = ref('Day Time')
+const bookingReservations = ref([]) // Add this
 
 export function useBooking() {
-  // ✅ UPDATED: Accept room, date, and reservationType
-  function openBooking(room, date, type) {
-    bookingRoom.id = room.id
-    bookingRoom.name = room.name
-    bookingRoom.icon = room.icon ?? '🏨'
-    bookingRoom.price = room.price
-    bookingRoom.capacity = room.capacity
-    bookingRoom.roomId = room.roomId || `ROOM${room.id}` // ✅ Added
+  function openBooking(room, date, type, reservations = []) {
+    bookingRoom.value = {
+      id: room.id,
+      name: room.name,
+      icon: room.icon ?? '🏨',
+      price: room.price,
+      capacity: room.capacity,
+      roomId: room.roomId || `ROOM${room.id}`,
+      quantity: room.quantity || 1,
+      type: room.type || 'room'
+    }
     
-    // ✅ NEW: Store date and reservation type
     bookingDate.value = date
     reservationType.value = type
+    bookingReservations.value = reservations // Store reservations
     
     isOpen.value = true
 
     console.log('📖 Booking Modal Opened')
-    console.log('🏠 Room:', bookingRoom.name)
+    console.log('🏠 Room:', bookingRoom.value)
     console.log('📅 Date:', date)
     console.log('⏰ Type:', type)
+    console.log('📋 Reservations:', reservations.length)
   }
 
   function closeBooking() {
     isOpen.value = false
-    console.log('📕 Booking Modal Closed')
-  }
-
-  function checkField(payload){
-    if (!payload){
-      isFilled.value = true
-    }
-  }
-
-  function computeDownPayment(){
-    const downPayment = 0.5 * bookingRoom.price
-    return downPayment
-  }
-
-  function computeRemainingBalance(){
-    const downPayment = 0.5 * bookingRoom.price
-    const balance = bookingRoom.price - downPayment
-    return balance
   }
 
   return { 
     isOpen, 
     isFilled, 
     bookingRoom, 
-    bookingDate,        // ✅ NEW
-    reservationType,    // ✅ NEW
+    bookingDate,        
+    reservationType,
+    bookingReservations, // Export this
     openBooking, 
-    closeBooking, 
-    checkField, 
-    computeDownPayment, 
-    computeRemainingBalance 
+    closeBooking,
+    checkField: () => {}, // Add missing functions or implement them
+    computeDownPayment: () => 0,
+    computeRemainingBalance: () => 0
   }
 }

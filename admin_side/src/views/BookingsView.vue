@@ -106,13 +106,13 @@
                 <th>Booking Date</th>
                 <th>Reservation Type</th>
                 <th style="text-align: center;">Status</th>
-                <th style="text-align: center;">View</th>
+                <!-- <th style="text-align: center;">Edit</th> -->
                 <th style="text-align: center;">Delete</th>
               </tr>
             </thead>
             <tbody>
               <tr 
-                v-for="booking in filteredBookings" 
+                v-for="booking in paginatedBookings" 
                 :key="booking.id"
                 class="booking-row"
                 @click="openBookingModal(booking)"
@@ -128,33 +128,28 @@
                   </span>
                 </td>
 
-                <td style="text-align: center;" @click.stop>
-                  <select 
-                    class="status-dropdown" 
-                    :class="getStatusClass(booking.status)"
-                    :value="booking.status"
-                    @change="updateBookingStatus(booking.id, $event.target.value)"
-                  >
-                    <option value="Pending">Pending</option>
-                    <option value="Confirmed">Confirmed</option>
-                    <option value="Re-schedule">Re-schedule</option>
-                    <option value="Checked-in">Checked-in</option>
-                    <option value="Checked-out">Checked-out</option>
-                  </select>
-                </td>
+                <!-- In BookingsView.vue, replace the status dropdown section (lines ~130-142) -->
 
+<td style="text-align: center;" @click.stop>
+  <span 
+    class="status-badge" 
+    :class="getStatusClass(booking.status)"
+  >
+    {{ booking.status }}
+  </span>
+</td>
+<!-- 
                 <td style="text-align: center;" @click.stop>
                   <button 
-                    class="view-btn" 
-                    @click="openBookingModal(booking)"
-                    title="View Details"
-                  >
-                    <svg viewBox="0 0 24 24" width="16" height="16">
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                      <circle cx="12" cy="12" r="3"/>
-                    </svg>
-                  </button>
-                </td>
+      class="edit-btn" 
+      @click="openEditModal(booking)"
+      title="Edit Reservation"
+    >
+      <svg viewBox="0 0 24 24" width="16" height="16">
+        <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+      </svg>
+    </button>
+                </td> -->
                 <td style="text-align: center;" @click.stop>
                   <button 
                     class="delete-btn" 
@@ -187,6 +182,24 @@
             <h3>No Bookings Found</h3>
             <p>Try a different search term or clear the filter.</p>
           </div>
+        </div>
+        <!-- Pagination -->
+        <div class="pagination" v-if="totalPages > 1 && !bookingsStore.isLoading">
+          <button 
+            class="page-btn" 
+            :disabled="currentPage === 1"
+            @click="currentPage--"
+          >
+            Previous
+          </button>
+          <span class="page-info">Page {{ currentPage }} of {{ totalPages }}</span>
+          <button 
+            class="page-btn" 
+            :disabled="currentPage === totalPages"
+            @click="currentPage++"
+          >
+            Next
+          </button>
         </div>
       </div>
     </section>
@@ -230,6 +243,14 @@
       @close="closeCreateModal"
       @success="handleNewReservation"
     />
+
+    <!-- Add after CreateReservationModal -->
+<!-- <EditReservationModal
+  :show="showEditModal"
+  :reservation-id="selectedEditBooking?.id"
+  @close="closeEditModal"
+  @updated="handleReservationUpdated"
+/> -->
   </div>
 </template>
 
@@ -244,6 +265,8 @@ import CreateReservationModal from '@/modals/createModal.vue'
 const bookingsStore = bookingsService
 
 const searchQuery = ref('')
+const currentPage = ref(1)
+const itemsPerPage = 10
 const roomFilter = ref('')
 const showModal = ref(false)
 const selectedBooking = ref(null)
@@ -254,6 +277,8 @@ const feedbackType = ref('success')
 const feedbackTitle = ref('')
 const feedbackMessage = ref('')
 const showCreateModal = ref(false)
+
+
 
 // Format date helper with null/undefined check
 const formatDate = (dateString) => {
@@ -332,6 +357,17 @@ const filteredBookings = computed(() => {
     return new Date(a.bookingDate) - new Date(b.bookingDate)
   })
 })
+
+// Paginated feedbacks
+const paginatedBookings = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage
+  const end = start + itemsPerPage
+  return filteredBookings.value.slice(start, end)
+})
+
+const totalPages = computed(() => 
+  Math.ceil(filteredBookings.value.length / itemsPerPage)
+)
 
 // Show feedback modal
 const showFeedback = (type, title, message) => {
@@ -415,14 +451,31 @@ const updateBookingStatus = async (bookingId, newStatus) => {
 
 // Handle status update from modal
 const handleStatusUpdate = async (data) => {
-  const result = await bookingsStore.updateBookingStatus(data.bookingId, data.newStatus)
+  const result = await bookingsStore.updateBookingStatus(
+    data.bookingId, 
+    data.newStatus,
+    data.newSchedule // ✅ Pass the new schedule date
+  )
   
   if (result.success) {
     console.log('✅ Status updated successfully')
     if (selectedBooking.value && selectedBooking.value.id === data.bookingId) {
       selectedBooking.value.status = data.newStatus
+      
+      // ✅ Update booking date if it was rescheduled
+      if (data.newSchedule) {
+        selectedBooking.value.bookingDate = data.newSchedule
+      }
     }
-    showFeedback('success', 'Status Updated', `Booking status changed to ${data.newStatus}`)
+    
+    // ✅ Refresh bookings to get latest data
+    await bookingsStore.fetchBookings()
+    
+    const message = data.newSchedule 
+      ? `Booking rescheduled to ${data.newSchedule}` 
+      : `Booking status changed to ${data.newStatus}`
+    
+    showFeedback('success', 'Status Updated', message)
   } else {
     showFeedback('error', 'Update Failed', result.error || 'Failed to update status')
   }
@@ -678,5 +731,75 @@ onMounted(async () => {
 .feedback-btn:hover {
   background: #357abd;
   transform: translateY(-1px);
+}
+
+.edit-btn {
+  background: #f59e0b;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all var(--tr);
+}
+
+.edit-btn:hover {
+  background: #d97706;
+  transform: translateY(-1px);
+}
+
+.edit-btn svg {
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+}
+
+/* Pagination */
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.page-btn {
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  background: white;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: all var(--tr);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.page-btn:hover:not(:disabled) {
+  background: var(--blue);
+  color: white;
+  border-color: var(--blue);
+  transform: translateY(-1px);
+}
+
+.page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.page-info {
+  color: var(--text);
+  font-weight: 500;
+  font-size: 14px;
 }
 </style>

@@ -47,7 +47,8 @@ export default {
 
 const { openBooking } = useBooking()
 
-const handleOpenBooking = (room, date, reservationType) => {
-  openBooking(room, date, reservationType)
+const handleOpenBooking = (room, date, type, reservations) => {
+  // Pass reservations to the booking modal
+  openBooking(room, date, type, reservations)
 }
 </script>

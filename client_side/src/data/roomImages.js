@@ -15,7 +15,7 @@ import callalilyImg1 from '../assets/photos/callalily.png'
 import stargazerImg1 from '../assets/photos/stargazer.png'
 // import stargazerImg2 from '../assets/photos/stargazer-2.png'
 // import stargazerImg3 from '../assets/photos/stargazer-3.png'
-import cottageImg1 from '../assets/photos/tulip.png'
+import cottageImg1 from '../assets/photos/c8f4899a1049ae567526db58d5798351c77b5c94.png'
 // import cottageImg2 from '../assets/photos/cottage-2.png'
 // import cottageImg3 from '../assets/photos/cottage-3.png'
 

@@ -308,6 +308,46 @@ select {
   text-align: center;
 }
 
+/* Pagination */
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.page-btn {
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  background: white;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: all var(--tr);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.page-btn:hover:not(:disabled) {
+  background: var(--blue);
+  color: white;
+  border-color: var(--blue);
+  transform: translateY(-1px);
+}
+
+.page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.page-info {
+  color: var(--text);
+  font-weight: 500;
+  font-size: 14px;
+}
+
 /* User footer */
 .sfooter {
   padding: 16px;

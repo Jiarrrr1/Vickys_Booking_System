@@ -102,7 +102,7 @@
             </thead>
             <tbody>
               <tr 
-                v-for="payment in filteredPayments" 
+                v-for="payment in paginatedPayments" 
                 :key="payment.paymentId"
                 class="payment-row"
                 @click="openPaymentModal(payment)"
@@ -168,6 +168,23 @@
           </div>
         </div>
       </div>
+      <div class="pagination" v-if="totalPages > 1 && !filteredPayments.isLoading">
+          <button 
+            class="page-btn" 
+            :disabled="currentPage === 1"
+            @click="currentPage--"
+          >
+            Previous
+          </button>
+          <span class="page-info">Page {{ currentPage }} of {{ totalPages }}</span>
+          <button 
+            class="page-btn" 
+            :disabled="currentPage === totalPages"
+            @click="currentPage++"
+          >
+            Next
+          </button>
+        </div>
       </div>
     </section>
 
@@ -215,6 +232,9 @@ const searchQuery = ref('')
 const statusFilter = ref('all')
 const showModal = ref(false)
 const selectedPayment = ref(null)
+
+const currentPage = ref(1)
+const itemsPerPage = 10
 
 // Confirmation modal state
 const showConfirmModal = ref(false)
@@ -299,6 +319,17 @@ const formatNumber = (num) => {
   if (!num && num !== 0) return '0'
   return num.toLocaleString('en-PH')
 }
+
+// Paginated feedbacks
+const paginatedPayments = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage
+  const end = start + itemsPerPage
+  return filteredPayments.value.slice(start, end)
+})
+
+const totalPages = computed(() => 
+  Math.ceil(filteredPayments.value.length / itemsPerPage)
+)
 
 // Open payment modal
 const openPaymentModal = (payment) => {

@@ -208,7 +208,7 @@ class ReservationServices {
     }
   }
 
-  async deleteReservation(id, deletedBy = null) {
+  async deleteReservation(id, deletedBy) {
     try {
       console.log(`🗑️ Soft deleting booking: ${id}`);
       

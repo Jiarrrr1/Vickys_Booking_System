@@ -289,10 +289,7 @@
                 <strong>₱{{ (room.price * room.quantity).toLocaleString() }}</strong>
               </div>
               
-              <div class="summary-row total">
-                <span>Total Amount:</span>
-                <strong>₱{{ formData.total.toLocaleString() }}</strong>
-              </div>
+              
               <div v-if="formData.paymentType === 'Downpayment'" class="summary-row">
                 <span>Downpayment (50%):</span>
                 <strong>₱{{ formData.downpayment.toLocaleString() }}</strong>
@@ -300,6 +297,10 @@
               <div v-if="formData.paymentType === 'Downpayment'" class="summary-row">
                 <span>Remaining Balance:</span>
                 <strong>₱{{ formData.remainingBalance.toLocaleString() }}</strong>
+              </div>
+              <div class="summary-row total">
+                <span>Total Amount:</span>
+                <strong>₱{{ formData.total.toLocaleString() }}</strong>
               </div>
             </div>
           </div>
@@ -1279,6 +1280,7 @@ export default {
 .calendar-day.fully-booked:not(.selected) {
   background: #fee2e2;
   border-color: #ef4444;
+  cursor: not-allowed;
 }
 
 .calendar-day.partially-available:not(.selected) {
@@ -1629,7 +1631,6 @@ export default {
 .summary-row.total {
   background: #667eea;
   color: white;
-  margin: 8px -16px -16px;
   padding: 12px 16px;
   border-radius: 0 0 6px 6px;
 }

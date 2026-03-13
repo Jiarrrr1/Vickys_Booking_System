@@ -99,7 +99,7 @@
                         <option value="Confirmed">Confirmed</option>
                         <option value="Checked-in">Checked-in</option>
                         <option value="Success">Succes</option>
-                        <option value="Re-schedule">Re-schedule</option>
+                        <!-- <option value="Re-schedule">Re-schedule</option> -->
                       </select>
                     </td>
                     <td style="color:var(--t3);font-size:12.5px;">

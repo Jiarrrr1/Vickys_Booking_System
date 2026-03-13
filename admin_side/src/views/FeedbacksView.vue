@@ -96,7 +96,7 @@
             <line x1="12" y1="8" x2="12" y2="12"/>
             <circle cx="12" cy="16" r="0.5" fill="currentColor"/>
           </svg>
-          <span>Maximum {{ maxDisplayFeedbacks }} feedbacks can be displayed reached</span>
+          <span>Maximum {{ maxDisplayFeedbacks }} feedbacks reached</span>
         </div>
         <div v-else class="limit-warning note">
             <span>Note!: Maximum {{ maxDisplayFeedbacks }} feedbacks can be displayed</span>

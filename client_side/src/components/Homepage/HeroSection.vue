@@ -19,7 +19,7 @@
       <h1 class="hero-title">Escape the Noise.<br><em>Embrace the Calm.</em></h1>
       <p class="hero-sub">A peaceful countryside retreat perfect for families, barkada getaways, and unforgettable celebrations — just 45 minutes from the city.</p>
       <div class="hero-btns">
-        <a href="#rooms" class="btn-primary">Book Your Stay</a>
+        <a href="#availability" class="btn-primary">Book Your Stay</a>
         <a href="#experience" class="btn-secondary">Explore Resort</a>
       </div>
     </div>
