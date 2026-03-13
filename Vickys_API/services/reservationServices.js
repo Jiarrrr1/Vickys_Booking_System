@@ -27,7 +27,7 @@ class ReservationServices {
         roomName: payload.roomName,
         roomQuantity: payload.roomQuantity,
         totalAmount: payload.totalAmount, // ✅ Using totalAmount (not total)
-        status: "Confirmed",
+        status: payload.status,
         referenceNumber: payload.referenceNumber,
         downpayment: payload.downpayment,
         remainingBalance: payload.remainingBalance,

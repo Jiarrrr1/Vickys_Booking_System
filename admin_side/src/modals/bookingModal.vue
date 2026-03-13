@@ -233,9 +233,10 @@
       class="status-select"
       :class="getStatusClass(selectedStatus)"
     >
+      <option value="Pending">Pending</option>
       <option value="Confirmed">Confirmed</option>
       <option value="Checked-in">Checked-in</option>
-      <option value="Success">Success</option>
+      <option v-if="booking.remainingBalance === 0" value="Success">Success</option>
       <!-- <option value="Re-schedule">Re-schedule</option> -->
     </select>
     

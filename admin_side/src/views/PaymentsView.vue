@@ -96,7 +96,7 @@
                 <th>Payment Type</th>
                 <th>Date</th>
                 <th>Status</th>
-                <th style="text-align: center;">View</th>
+                <!-- <th style="text-align: center;">View</th> -->
                 <th style="text-align: center;">Delete</th>
               </tr>
             </thead>
@@ -120,7 +120,7 @@
                     {{ payment.status }}
                   </span>
                 </td>
-                <td style="text-align: center;" @click.stop>
+                <!-- <td style="text-align: center;" @click.stop>
                   <button 
                     class="view-btn" 
                     @click="openPaymentModal(payment)"
@@ -131,7 +131,7 @@
                       <circle cx="12" cy="12" r="3"/>
                     </svg>
                   </button>
-                </td>
+                </td> -->
                 <td style="text-align: center;" @click.stop>
                   <button 
                     class="delete-btn" 

@@ -591,12 +591,8 @@ generateConfirmationEmailHTML(reservation) {
                             <div class="detail-value">${reservation.roomName} <span class="badge">${nights} night${nights > 1 ? 's' : ''}</span></div>
                         </div>
                         <div class="detail-row">
-                            <div class="detail-label">Check-in:</div>
-                            <div class="detail-value">${checkInDate}</div>
-                        </div>
-                        <div class="detail-row">
-                            <div class="detail-label">Check-out:</div>
-                            <div class="detail-value">${checkOutDate}</div>
+                            <div class="detail-label">Booking Date:</div>
+                            <div class="detail-value">${reservation.bookingDate}</div>
                         </div>
                         <div class="detail-row">
                             <div class="detail-label">Guests:</div>
@@ -679,7 +675,7 @@ generateConfirmationEmailHTML(reservation) {
         <body>
             <div class="container">
                 <div class="header">
-                    <h1>Reservation Confirmed!</h1>
+                    <h1>Reservation Submitted!</h1>
                     <p>Thank you for choosing Vicky's Resort</p>
                 </div>
                 <div class="content">
@@ -698,8 +694,8 @@ generateConfirmationEmailHTML(reservation) {
                             <div class="detail-value"><strong>${reservation.roomName}</strong></div>
                         </div>
                         <div class="detail-row">
-                            <div class="detail-label">Number of Nights:</div>
-                            <div class="detail-value">${nights} night${nights > 1 ? 's' : ''}</div>
+                            <div class="detail-label">Reservation Type:</div>
+                            <div class="detail-value">${reservation.reservationType}</div>
                         </div>
                     </div>
 
@@ -707,11 +703,7 @@ generateConfirmationEmailHTML(reservation) {
                         <h3>📅 Stay Dates</h3>
                         <div class="detail-row">
                             <div class="detail-label">Check-in:</div>
-                            <div class="detail-value">${checkInDate}</div>
-                        </div>
-                        <div class="detail-row">
-                            <div class="detail-label">Check-out:</div>
-                            <div class="detail-value">${checkOutDate}</div>
+                            <div class="detail-value">${reservation.bookingDate}</div>
                         </div>
                         <div class="detail-row">
                             <div class="detail-label">Guests:</div>
@@ -735,7 +727,7 @@ generateConfirmationEmailHTML(reservation) {
                     <div class="important-note">
                         <strong>📝 Your Special Request:</strong>
                         <p>${reservation.request}</p>
-                        <p><small>We will do our best to accommodate your request.</small></p>
+                        <p><small>Please wait to confirm your reservation payment</small></p>
                     </div>
                     ` : ''}
 
