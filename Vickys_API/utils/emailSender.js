@@ -434,12 +434,8 @@ generateConfirmationEmailHTML(reservation) {
 
                     <div class="details-grid">
                         <div class="detail-item">
-                            <div class="detail-label">Check-in</div>
-                            <div class="detail-value">${checkInDate}</div>
-                        </div>
-                        <div class="detail-item">
-                            <div class="detail-label">Check-out</div>
-                            <div class="detail-value">${checkOutDate}</div>
+                            <div class="detail-label">Booking Date</div>
+                            <div class="detail-value">${reservation.bookingDate}</div>
                         </div>
                     </div>
 
@@ -447,7 +443,7 @@ generateConfirmationEmailHTML(reservation) {
                         <div class="room-icon">🏨</div>
                         <div class="room-details">
                             <h3>${reservation.roomName}</h3>
-                            <p>${nights} night${nights > 1 ? 's' : ''} • ${reservation.guestQuantity} guest${reservation.guestQuantity > 1 ? 's' : ''}</p>
+                            <p>• ${reservation.guestQuantity} guest${reservation.guestQuantity > 1 ? 's' : ''}</p>
                         </div>
                     </div>
 
@@ -588,11 +584,16 @@ generateConfirmationEmailHTML(reservation) {
                     <div class="details">
                         <div class="detail-row">
                             <div class="detail-label">Room:</div>
-                            <div class="detail-value">${reservation.roomName} <span class="badge">${nights} night${nights > 1 ? 's' : ''}</span></div>
+                            <div class="detail-value">${reservation.roomName}</div>
                         </div>
+                        
                         <div class="detail-row">
                             <div class="detail-label">Booking Date:</div>
                             <div class="detail-value">${reservation.bookingDate}</div>
+                        </div>
+                        <div class="detail-row">
+                            <div class="detail-label">Reservation Type</div>
+                            <div class="detail-value">${reservation.reservationType}</div>
                         </div>
                         <div class="detail-row">
                             <div class="detail-label">Guests:</div>

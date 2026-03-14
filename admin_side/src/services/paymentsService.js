@@ -334,6 +334,31 @@ this.saveToCache() // <-- ADD THIS
     return state.payments.length
   }
 
+  get todaysPayments() {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0) // Start of today
+  
+  const tomorrow = new Date(today)
+  tomorrow.setDate(tomorrow.getDate() + 1) // Start of tomorrow
+  
+  return state.payments.filter(payment => {
+    if (!payment.date) return false
+    
+    const paymentDate = new Date(payment.date)
+    return paymentDate >= today && paymentDate < tomorrow
+  })
+}
+
+// Optional: Add a computed property for today's revenue
+get todaysRevenue() {
+  return this.todaysPayments.reduce((sum, payment) => sum + (payment.amt || 0), 0)
+}
+
+// Optional: Add a computed property for today's payment count
+get todaysPaymentCount() {
+  return this.todaysPayments.length
+}
+
 
   getPaymentsByYear(year) {
     return state.payments.filter(payment => {
@@ -348,6 +373,8 @@ this.saveToCache() // <-- ADD THIS
       return paymentDate.getFullYear() === year && paymentDate.getMonth() === month
     })
   }
+
+  
 
   // ==========================================
   // STATE GETTERS

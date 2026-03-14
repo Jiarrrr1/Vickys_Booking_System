@@ -20,7 +20,7 @@
 
         <!-- Upcoming Bookings -->
         <StatCard
-          :value="bookingsStore.upcomingBookings.length"
+          :value="upcomingBookings.length"
           label="Upcoming (next 7 days)"
           color-class="ca"
         >
@@ -413,6 +413,41 @@ const handleNewReservation = async (newReservation) => {
   
   closeCreateModal()
 }
+
+
+// Upcoming bookings (next 7 days)
+const upcomingBookings = computed(() => {
+  if (!bookingsService.bookings.length) {
+    console.log('📊 No bookings in service for upcoming')
+    return []
+  }
+
+  // Get today's date in YYYY-MM-DD using local time
+  const today = new Date()
+  const year = today.getFullYear()
+  const month = String(today.getMonth() + 1).padStart(2, '0')
+  const day = String(today.getDate()).padStart(2, '0')
+  const todayStr = `${year}-${month}-${day}`
+
+  // Get date 7 days from now
+  const sevenDaysLater = new Date(today)
+  sevenDaysLater.setDate(today.getDate() + 7)
+  const laterYear = sevenDaysLater.getFullYear()
+  const laterMonth = String(sevenDaysLater.getMonth() + 1).padStart(2, '0')
+  const laterDay = String(sevenDaysLater.getDate()).padStart(2, '0')
+  const sevenDaysLaterStr = `${laterYear}-${laterMonth}-${laterDay}`
+
+  console.log('📅 Date range:', todayStr, 'to', sevenDaysLaterStr)
+
+  const filtered = bookingsService.bookings.filter(booking => {
+    const bookingDate = booking.bookingDate
+    // Only include future bookings (>= today) and within 7 days
+    return bookingDate >= todayStr && bookingDate <= sevenDaysLaterStr
+  })
+  
+  console.log(`📊 Found ${filtered.length} upcoming bookings`)
+  return filtered
+})
 
 // Confirm delete
 const confirmDelete = (booking) => {

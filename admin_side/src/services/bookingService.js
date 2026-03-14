@@ -42,7 +42,7 @@ const transformBooking = (backendBooking) => ({
 const totalBookings = computed(() => state.bookings.length)
 
 const totalGuests = computed(() => {
-  return state.bookings.reduce((sum, booking) => sum + (booking.guests || 0), 0)
+  return state.bookings.reduce((sum, booking) => sum + (booking.guestQuantity || 0), 0)
 })
 
 const upcomingBookings = computed(() => {

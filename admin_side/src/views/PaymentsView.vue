@@ -32,8 +32,8 @@
 
         <!-- Pending Transactions -->
         <StatCard
-          :value="paymentsService.pendingCount"
-          label="Pending Transactions"
+          :value="`₱${formatNumber(paymentsService.todaysRevenue)}`"
+          label="Today's Revenue"
           color-class="ca"
         >
           <template #icon>
